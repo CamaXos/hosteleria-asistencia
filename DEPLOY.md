@@ -1,61 +1,58 @@
 ﻿# Despliegue: Git, Supabase y Vercel
 
-Checklist para conectar el repositorio con Supabase y, más adelante, importar en Vercel.
+Checklist y estado de integraciones para **hosteleria-asistencia**.
 
-**Proyecto Supabase:** `vmubthxbchrrutwdbfed`  
+**Proyecto Supabase:** `vmubthxbchrrutwdbfed` (Control Personal)  
 **Dashboard:** https://supabase.com/dashboard/project/vmubthxbchrrutwdbfed
+
+**Producción Vercel:** https://hosteleria-asistencia.vercel.app  
+**Proyecto Vercel:** https://vercel.com/casa-joaquin/hosteleria-asistencia
 
 ---
 
 ## 1. Git y GitHub
 
-- El código vive en GitHub (repositorio privado recomendado).
-- `.gitignore` excluye `.env.local`, `.next/` y `node_modules/`.
-- Plantilla de variables: `.env.local.example`.
+- Repositorio: https://github.com/CamaXos/hosteleria-asistencia (privado, rama `main`)
+- `.gitignore` excluye `.env.local`, `.next/` y `node_modules/`
+- Plantilla de variables: `.env.local.example`
+- Migración en remoto: `supabase/migrations/001_initial_schema.sql`
 
 ---
 
 ## 2. Integración GitHub en Supabase (migraciones)
 
-Supabase puede seguir las migraciones en `supabase/migrations/` cuando el repo está enlazado.
+### 2.1 Verificación desde CLI (2026-06-25)
 
-### 2.1 Token de acceso (CLI y API)
+| Comprobación | Resultado |
+|--------------|-----------|
+| `SUPABASE_ACCESS_TOKEN` en `.env.local` | Presente (no mostrar en logs) |
+| `npx supabase projects list` | Proyecto `vmubthxbchrrutwdbfed` con `"linked": true` |
+| `npx supabase migration list --linked` | Local `001` = Remote `001` |
+| `npx supabase db push --dry-run --linked` | *Remote database is up to date* |
+| `npx supabase branches list` | Rama Git `main` asociada al proyecto (`git_branch: main`, estado `FUNCTIONS_DEPLOYED`) |
 
-1. Abre https://supabase.com/dashboard/account/tokens
-2. **Generate new token** → copia el valor (solo se muestra una vez).
-3. En local (PowerShell, sesión actual):
+**Conclusión:** el CLI confirma enlace local ↔ remoto y migraciones sincronizadas. La rama `main` en Supabase indica que la integración Git del dashboard está activa.
 
-   ```powershell
-   $env:SUPABASE_ACCESS_TOKEN = "tu-token"
-   ```
+### 2.2 Qué no se puede verificar solo con `gh` / CLI
 
-   Opcional: guarda el token en el gestor de secretos; **no** lo subas a Git.
+| Aspecto | CLI / `gh` | Panel Supabase |
+|---------|------------|----------------|
+| Repo conectado en Integrations | No (API de instalaciones de apps requiere permisos de GitHub App) | **Settings → Integrations → GitHub** |
+| Permisos de la app Supabase en el repo | No con token `repo` estándar | GitHub → Settings → Applications |
+| Despliegue automático de migraciones en cada push | Indirecto (rama `main` en `branches list`) | Integrations → historial de migraciones |
+| Contraseña de BD / rotación | `supabase link` | Database settings |
 
-### 2.2 Enlazar el proyecto local (CLI)
-
-Desde la raíz del repo:
+Comandos útiles en local:
 
 ```powershell
-npx supabase login
-# o usa SUPABASE_ACCESS_TOKEN como arriba
-
-npx supabase link --project-ref vmubthxbchrrutwdbfed --yes
-# Te pedirá la contraseña de la BD si no usas -p
+npx supabase migration list --linked
+npx supabase db push --dry-run --linked
+npx supabase branches list
 ```
-
-Comprueba: `npx supabase migration list`
-
-### 2.3 Conectar el repositorio en el panel (recomendado para CI de migraciones)
-
-1. https://supabase.com/dashboard/project/vmubthxbchrrutwdbfed/settings/general
-2. **Integrations** → **GitHub** → **Authorize GitHub** (si no lo hiciste antes).
-3. **Connect repository** → elige `CamaXos/hosteleria-asistencia` (o tu org/repo).
-4. Rama por defecto: `main`.
-5. Directorio de migraciones: `supabase/migrations` (por defecto del CLI).
 
 Documentación: https://supabase.com/docs/guides/cli/managing-environments
 
-**Estructura actual:**
+**Estructura:**
 
 ```
 supabase/
@@ -67,45 +64,73 @@ supabase/
 
 ---
 
-## 3. Vercel (importar más adelante — no desplegar aún)
+## 3. Vercel
 
-### 3.1 Importar desde GitHub
+### 3.1 Estado del deploy
+
+| Item | Estado |
+|------|--------|
+| Cuenta CLI | Sesión iniciada (equipo **casa-joaquin**) |
+| Proyecto | `hosteleria-asistencia` |
+| URL producción | https://hosteleria-asistencia.vercel.app |
+| Variables en Vercel | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` en Production, Preview y Development |
+
+El primer deploy se hizo con `npx vercel --yes`; producción actual con `npx vercel --prod --yes`.
+
+### 3.2 Conectar GitHub en Vercel (pendiente manual)
+
+El CLI mostró error al enlazar el repo: hace falta **Login Connection** con GitHub en la cuenta Vercel.
+
+1. Abre https://vercel.com/account/settings/authentication
+2. En **Login Connections**, conecta **GitHub** (la misma cuenta que posee el repo).
+3. En el proyecto: https://vercel.com/casa-joaquin/hosteleria-asistencia/settings/git → **Connect Git Repository** → `CamaXos/hosteleria-asistencia`.
+
+Así cada `git push` a `main` desplegará automáticamente.
+
+### 3.3 Variables de entorno
+
+Ya configuradas vía CLI desde `.env.local`. Para revisar o editar:
+
+https://vercel.com/casa-joaquin/hosteleria-asistencia/settings/environment-variables
+
+| Variable | Uso |
+|----------|-----|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL pública del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Cliente browser (RLS) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Solo servidor (API routes admin) |
+
+Tras cambiar variables: **Redeploy** en Vercel o `npx vercel --prod --yes`.
+
+### 3.4 Importar desde cero (alternativa web)
 
 1. https://vercel.com/new
-2. Importa el repo `hosteleria-asistencia`.
-3. Framework: **Next.js** (detección automática).
-4. No hace falta `vercel.json` para un App Router estándar.
-
-### 3.2 Variables de entorno en Vercel
-
-Añade en **Settings → Environment Variables** (Production, Preview y Development):
-
-| Variable | Dónde obtenerla |
-|----------|-----------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → API → anon public |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → API → service_role (solo servidor) |
-
-Opcional para scripts locales / futuros jobs:
-
-| Variable | Notas |
-|----------|--------|
-| `SUPABASE_DB_PASSWORD` | Project Settings → Database; no suele hacer falta en runtime de Next en Vercel |
-
-### 3.3 Después del primer deploy
-
-En Supabase → **Authentication** → **URL Configuration**:
-
-- **Site URL:** `https://tu-dominio.vercel.app`
-- **Redirect URLs:** `https://tu-dominio.vercel.app/**`
+2. Importa `CamaXos/hosteleria-asistencia`
+3. Framework: **Next.js**
+4. Añade las mismas variables de entorno antes del primer deploy
 
 ---
 
-## 4. Enlaces útiles
+## 4. Supabase Auth (obligatorio tras Vercel)
+
+En https://supabase.com/dashboard/project/vmubthxbchrrutwdbfed/auth/url-configuration:
+
+| Campo | Valor |
+|-------|--------|
+| **Site URL** | `https://hosteleria-asistencia.vercel.app` |
+| **Redirect URLs** | `https://hosteleria-asistencia.vercel.app/**` |
+
+Opcional (previews de Vercel): añade también `https://*-casa-joaquin.vercel.app/**` si usas login en entornos preview.
+
+Sin estos valores, el login por magic link / OAuth puede fallar o redirigir a `localhost`.
+
+---
+
+## 5. Enlaces útiles
 
 | Recurso | URL |
 |---------|-----|
 | Repo GitHub | https://github.com/CamaXos/hosteleria-asistencia |
 | Supabase proyecto | https://supabase.com/dashboard/project/vmubthxbchrrutwdbfed |
 | Tokens Supabase | https://supabase.com/dashboard/account/tokens |
-| Vercel nuevo proyecto | https://vercel.com/new |
+| App en producción | https://hosteleria-asistencia.vercel.app |
+| Vercel proyecto | https://vercel.com/casa-joaquin/hosteleria-asistencia |
