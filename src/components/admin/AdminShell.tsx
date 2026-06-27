@@ -13,14 +13,14 @@ import {
   Menu,
   X,
   ClipboardList,
-  Sun,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/shared/LogoutButton";
 
 const navItems = [
-  { href: "/admin/hoy", label: "Hoy", icon: Sun, primary: true },
   { href: "/admin", label: "Panel", icon: LayoutDashboard },
+  { href: "/admin/resumen-diario", label: "Resumen diario", icon: CalendarCheck, primary: true },
   { href: "/admin/analytics", label: "Analíticas", icon: BarChart3 },
   { href: "/admin/centers", label: "Centros", icon: Building2 },
   { href: "/admin/employees", label: "Empleados", icon: Users },

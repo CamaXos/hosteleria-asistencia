@@ -22,6 +22,13 @@ export function getTodayISO(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: MADRID_TZ }).format(new Date());
 }
 
+export function parseDateParam(value: string | undefined): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return getTodayISO();
+  const d = parseISO(value);
+  if (Number.isNaN(d.getTime())) return getTodayISO();
+  return value;
+}
+
 export function formatTime(date: string | Date): string {
   const d = typeof date === "string" ? parseISO(date) : date;
   return format(d, "HH:mm", { locale: es });

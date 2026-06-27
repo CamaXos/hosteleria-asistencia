@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getTodayISO } from "@/lib/utils";
 import type { AttendanceStatus, Center } from "@/lib/types/database";
 
 export interface CenterTodayStatus {
@@ -64,9 +63,9 @@ function getProfileName(rel: unknown): string {
   return (rel as { full_name?: string }).full_name || "—";
 }
 
-export async function getTodayOverview(): Promise<TodayOverview> {
+export async function getDailyOverview(dateISO: string): Promise<TodayOverview> {
   const supabase = await createClient();
-  const today = getTodayISO();
+  const today = dateISO;
 
   const [
     { count: activeEmployees },

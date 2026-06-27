@@ -1,7 +1,5 @@
-import { getTodayOverview } from "@/lib/actions/today";
-import { TodayView } from "@/components/admin/TodayView";
+import { redirect } from "next/navigation";
 
-export default async function AdminHoyPage() {
-  const data = await getTodayOverview();
-  return <TodayView data={data} />;
+export default function AdminHoyRedirect() {
+  redirect("/admin/resumen-diario");
 }

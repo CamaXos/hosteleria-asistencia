@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, KpiCard } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
+import { Input } from "@/components/ui/Input";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatDateLong, formatDateTime, formatTime } from "@/lib/utils";
 import type { TodayOverview } from "@/lib/actions/today";
@@ -20,11 +22,13 @@ import {
   FileCheck,
 } from "lucide-react";
 
-interface TodayViewProps {
+interface DailySummaryViewProps {
   data: TodayOverview;
+  selectedDate: string;
 }
 
-export function TodayView({ data }: TodayViewProps) {
+export function DailySummaryView({ data, selectedDate }: DailySummaryViewProps) {
+  const router = useRouter();
   const [attendedFilter, setAttendedFilter] = useState("");
   const [notAttendedFilter, setNotAttendedFilter] = useState("");
 
@@ -41,19 +45,37 @@ export function TodayView({ data }: TodayViewProps) {
     ? data.notAttended.filter((e) => e.centerId === notAttendedFilter)
     : data.notAttended;
 
+  function handleDateChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const newDate = e.target.value;
+    if (!newDate) return;
+    router.push(`/admin/resumen-diario?date=${newDate}`);
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Hoy</h1>
-        <p className="mt-1 text-sm capitalize text-slate-500">
-          {formatDateLong(data.dateISO)}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Resumen diario</h1>
+          <p className="mt-1 text-sm capitalize text-slate-500">
+            {formatDateLong(data.dateISO)}
+          </p>
+        </div>
+        <div className="w-full sm:max-w-xs">
+          <Input
+            id="summary-date"
+            type="date"
+            label="Fecha"
+            value={selectedDate}
+            onChange={handleDateChange}
+            className="text-base"
+          />
+        </div>
       </div>
 
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         <KpiCard label="Empleados activos" value={data.kpis.activeEmployees} icon={<Users className="h-5 w-5" />} />
-        <KpiCard label="Trabajaron hoy" value={data.kpis.workedToday} variant="success" icon={<CheckCircle2 className="h-5 w-5" />} />
+        <KpiCard label="Asistieron" value={data.kpis.workedToday} variant="success" icon={<CheckCircle2 className="h-5 w-5" />} />
         <KpiCard label="Faltas" value={data.kpis.absences} variant="danger" icon={<UserX className="h-5 w-5" />} />
         <KpiCard label="Enfermedad" value={data.kpis.sick} variant="warning" icon={<HeartPulse className="h-5 w-5" />} />
         <KpiCard label="Vacaciones" value={data.kpis.vacation} icon={<Palmtree className="h-5 w-5" />} />
@@ -64,7 +86,7 @@ export function TodayView({ data }: TodayViewProps) {
 
       {/* Pending centers alert */}
       {data.pendingCenters.length > 0 && (
-        <Card title="Centros pendientes" description="Aún no han enviado el parte de hoy">
+        <Card title="Centros pendientes" description="Aún no han enviado el parte del día">
           <div className="space-y-2">
             {data.pendingCenters.map((c) => (
               <div
@@ -140,7 +162,7 @@ export function TodayView({ data }: TodayViewProps) {
 
       {/* Submissions by responsibles */}
       {data.submissions.length > 0 && (
-        <Card title="Responsables que cerraron partes" description="Informes enviados hoy">
+        <Card title="Responsables que cerraron partes" description="Informes enviados">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
@@ -187,7 +209,7 @@ export function TodayView({ data }: TodayViewProps) {
           />
         </div>
         {filteredAttended.length === 0 ? (
-          <p className="text-sm text-slate-500">Nadie ha registrado asistencia todavía.</p>
+          <p className="text-sm text-slate-500">Nadie ha registrado asistencia para este día.</p>
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">

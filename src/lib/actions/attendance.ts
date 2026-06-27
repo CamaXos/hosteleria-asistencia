@@ -131,7 +131,7 @@ export async function submitAttendanceReport(
 
   revalidatePath("/responsible");
   revalidatePath("/admin");
-  revalidatePath("/admin/hoy");
+  revalidatePath("/admin/resumen-diario");
   revalidatePath("/responsible/stats");
   return data as string;
 }
