@@ -17,6 +17,7 @@ import {
   type EmployeeHistorySummary,
 } from "@/lib/actions/responsible-stats";
 import type { AttendanceStatus } from "@/lib/types/database";
+import { EmployeeMonthCalendar } from "@/components/admin/EmployeeMonthCalendar";
 import { ArrowLeft } from "lucide-react";
 
 interface EmployeeHistoryViewProps {
@@ -71,6 +72,7 @@ export function EmployeeHistoryView({
   const [isPending, startTransition] = useTransition();
 
   const years = Array.from({ length: 3 }, (_, i) => now.getFullYear() - i);
+  const monthLabel = MONTHS.find((m) => Number(m.value) === month)?.label ?? "";
 
   function handleFilter() {
     startTransition(async () => {
@@ -143,6 +145,13 @@ export function EmployeeHistoryView({
           />
         ))}
       </div>
+
+      <EmployeeMonthCalendar
+        year={year}
+        month={month}
+        monthLabel={monthLabel}
+        entries={entries}
+      />
 
       <Card title="Registros del mes" description={`${entries.length} entradas`}>
         {entries.length === 0 ? (
