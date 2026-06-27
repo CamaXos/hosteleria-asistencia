@@ -50,14 +50,11 @@ export function ResponsibleStatsView({ data }: ResponsibleStatsViewProps) {
                         .map((s) => (
                           <div
                             key={`${s.centerId}-${s.dayOfWeek}`}
-                            className="flex items-center justify-between text-sm"
+                            className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"
                           >
-                            <span className="text-slate-600">
-                              {DAY_OF_WEEK_LABELS[s.dayOfWeek]}
-                            </span>
-                            <span className="flex items-center gap-1 font-medium text-slate-900">
-                              <Clock className="h-3.5 w-3.5 text-slate-400" />
-                              {s.startTime} – {s.endTime}
+                            <Clock className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+                            <span className="font-medium text-slate-900">
+                              {DAY_OF_WEEK_LABELS[s.dayOfWeek]} {s.startTime} – {s.endTime}
                             </span>
                           </div>
                         ))}

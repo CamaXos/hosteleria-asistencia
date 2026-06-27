@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { saveResponsibleSchedules, type ScheduleInput } from "@/lib/actions/responsible-stats";
-import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Alert } from "@/components/ui/Alert";
@@ -21,6 +20,18 @@ interface ScheduleEditorProps {
 }
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
+
+function validateLocalSchedules(schedules: ScheduleInput[]): string | null {
+  for (const s of schedules) {
+    if (!s.startTime || !s.endTime) {
+      return `Completa hora inicio y fin para ${DAY_OF_WEEK_LABELS[s.dayOfWeek]}`;
+    }
+    if (s.startTime >= s.endTime) {
+      return `La hora fin debe ser posterior a la hora inicio (${DAY_OF_WEEK_LABELS[s.dayOfWeek]})`;
+    }
+  }
+  return null;
+}
 
 export function ScheduleEditor({
   open,
@@ -42,6 +53,7 @@ export function ScheduleEditor({
     }))
   );
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   function getSchedule(centerId: string, day: number): ScheduleInput | undefined {
@@ -54,6 +66,7 @@ export function ScheduleEditor({
     field: "startTime" | "endTime",
     value: string
   ) {
+    setSuccess(false);
     setSchedules((prev) => {
       const existing = prev.find((s) => s.centerId === centerId && s.dayOfWeek === day);
       if (existing) {
@@ -73,6 +86,7 @@ export function ScheduleEditor({
   }
 
   function toggleDay(centerId: string, day: number, enabled: boolean) {
+    setSuccess(false);
     if (enabled) {
       setSchedules((prev) => [
         ...prev,
@@ -87,12 +101,22 @@ export function ScheduleEditor({
 
   async function handleSave() {
     setError("");
+    setSuccess(false);
+
+    const validationError = validateLocalSchedules(schedules);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setLoading(true);
-    const valid = schedules.filter((s) => s.startTime && s.endTime);
     try {
-      await saveResponsibleSchedules(responsibleId, valid);
-      onClose();
-      window.location.reload();
+      await saveResponsibleSchedules(responsibleId, schedules, centerIds);
+      setSuccess(true);
+      setTimeout(() => {
+        onClose();
+        window.location.reload();
+      }, 1200);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -111,47 +135,58 @@ export function ScheduleEditor({
       loading={loading}
     >
       {error && <Alert variant="error">{error}</Alert>}
+      {success && (
+        <Alert variant="success">Horario guardado correctamente</Alert>
+      )}
 
       {assignedCenters.length === 0 ? (
         <p className="text-sm text-slate-500">Asigna centros primero para configurar horarios.</p>
       ) : (
         <div className="space-y-6 max-h-[60vh] overflow-y-auto">
           {assignedCenters.map((center) => (
-            <div key={center.id} className="rounded-xl border border-slate-200 p-4">
-              <h4 className="mb-3 font-medium text-slate-900">{center.name}</h4>
+            <div key={center.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+              <h4 className="mb-4 font-semibold text-[var(--primary)]">{center.name}</h4>
               <div className="space-y-3">
                 {WEEKDAYS.map((day) => {
                   const sched = getSchedule(center.id, day);
                   const enabled = !!sched;
                   return (
-                    <div key={day} className="flex flex-wrap items-center gap-3">
-                      <label className="flex w-28 items-center gap-2 text-sm">
+                    <div
+                      key={day}
+                      className={`rounded-xl border p-3 transition-colors ${
+                        enabled
+                          ? "border-[var(--accent)]/30 bg-white"
+                          : "border-slate-100 bg-white/60"
+                      }`}
+                    >
+                      <label className="flex cursor-pointer items-center gap-3">
                         <input
                           type="checkbox"
                           checked={enabled}
                           onChange={(e) => toggleDay(center.id, day, e.target.checked)}
-                          className="rounded border-slate-300"
+                          className="h-5 w-5 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                         />
-                        {DAY_OF_WEEK_LABELS[day]}
+                        <span className="min-w-[5rem] text-sm font-medium text-slate-900">
+                          {DAY_OF_WEEK_LABELS[day]}
+                        </span>
                       </label>
                       {enabled && sched && (
-                        <div className="flex items-center gap-2">
+                        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <Input
+                            label="Hora inicio"
                             type="time"
                             value={sched.startTime}
                             onChange={(e) =>
                               updateSchedule(center.id, day, "startTime", e.target.value)
                             }
-                            className="!py-1.5"
                           />
-                          <span className="text-slate-400">–</span>
                           <Input
+                            label="Hora fin"
                             type="time"
                             value={sched.endTime}
                             onChange={(e) =>
                               updateSchedule(center.id, day, "endTime", e.target.value)
                             }
-                            className="!py-1.5"
                           />
                         </div>
                       )}

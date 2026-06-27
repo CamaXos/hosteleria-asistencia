@@ -9,11 +9,15 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-async function fetchEmployeeHistory(employeeId: string, year: number, month: number) {
-  "use server";
-  const { entries, summary } = await getEmployeeHistory(employeeId, year, month);
-  return { entries, summary };
-}
+const EMPTY_SUMMARY = {
+  worked: 0,
+  day_off: 0,
+  vacation: 0,
+  absence: 0,
+  sick: 0,
+  inactive: 0,
+  other: 0,
+} as const;
 
 export default async function EmployeeHistoryPage({ params }: PageProps) {
   const { id } = await params;
@@ -23,7 +27,17 @@ export default async function EmployeeHistoryPage({ params }: PageProps) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-  const { entries, summary } = await getEmployeeHistory(id, year, month);
+
+  let entries: Awaited<ReturnType<typeof getEmployeeHistory>>["entries"] = [];
+  let summary = { ...EMPTY_SUMMARY };
+
+  try {
+    const result = await getEmployeeHistory(id, year, month);
+    entries = result.entries;
+    summary = result.summary;
+  } catch {
+    // Historial vacío si la consulta falla; la vista sigue mostrando datos del empleado.
+  }
 
   const center = employee.centers as { name: string } | null;
   const centerName = center?.name || "—";
@@ -37,7 +51,6 @@ export default async function EmployeeHistoryPage({ params }: PageProps) {
       initialSummary={summary}
       initialYear={year}
       initialMonth={month}
-      onMonthChange={(y, m) => fetchEmployeeHistory(id, y, m)}
     />
   );
 }

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { subDays, format } from "date-fns";
+import { DAY_OF_WEEK_LABELS } from "@/lib/constants";
 import type { AttendanceStatus, Center, ResponsibleSchedule } from "@/lib/types/database";
 
 export interface ResponsibleSubmission {
@@ -127,16 +128,37 @@ export async function getResponsibleSchedules(
   return (data as ResponsibleSchedule[]) || [];
 }
 
+function validateSchedules(schedules: ScheduleInput[]) {
+  for (const s of schedules) {
+    if (!s.startTime || !s.endTime) {
+      throw new Error(
+        `Completa hora inicio y fin para ${DAY_OF_WEEK_LABELS[s.dayOfWeek]}`
+      );
+    }
+    if (s.startTime >= s.endTime) {
+      throw new Error(
+        `La hora fin debe ser posterior a la hora inicio (${DAY_OF_WEEK_LABELS[s.dayOfWeek]})`
+      );
+    }
+  }
+}
+
 export async function saveResponsibleSchedules(
   responsibleId: string,
-  schedules: ScheduleInput[]
+  schedules: ScheduleInput[],
+  assignedCenterIds: string[]
 ) {
+  validateSchedules(schedules);
+
   const supabase = await createClient();
 
-  await supabase
-    .from("responsible_schedules")
-    .delete()
-    .eq("responsible_id", responsibleId);
+  if (assignedCenterIds.length > 0) {
+    await supabase
+      .from("responsible_schedules")
+      .delete()
+      .eq("responsible_id", responsibleId)
+      .in("center_id", assignedCenterIds);
+  }
 
   if (schedules.length > 0) {
     const { error } = await supabase.from("responsible_schedules").insert(
@@ -153,6 +175,15 @@ export async function saveResponsibleSchedules(
 
   revalidatePath("/admin/responsibles");
   revalidatePath("/responsible/stats");
+}
+
+export async function fetchEmployeeHistoryForMonth(
+  employeeId: string,
+  year: number,
+  month: number
+) {
+  const { entries, summary } = await getEmployeeHistory(employeeId, year, month);
+  return { entries, summary };
 }
 
 export interface EmployeeHistoryEntry {
