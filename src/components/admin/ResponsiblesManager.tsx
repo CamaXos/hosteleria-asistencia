@@ -6,6 +6,7 @@ import {
   updateResponsibleAssignments,
   toggleResponsibleActive,
 } from "@/lib/actions/employees";
+import { ScheduleEditor } from "@/components/admin/ScheduleEditor";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Alert } from "@/components/ui/Alert";
 import { getErrorMessage } from "@/lib/utils";
 import { MIN_RESPONSIBLES_PER_CENTER, MAX_RESPONSIBLES_PER_CENTER } from "@/lib/constants";
-import type { Center, Profile } from "@/lib/types/database";
+import type { Center, Profile, ResponsibleSchedule } from "@/lib/types/database";
 
 type ResponsibleWithCenters = Profile & { center_ids: string[] };
 
@@ -22,15 +23,18 @@ interface ResponsiblesManagerProps {
   responsibles: ResponsibleWithCenters[];
   centers: Center[];
   centerResponsibleCounts: Record<string, number>;
+  allSchedules: ResponsibleSchedule[];
 }
 
 export function ResponsiblesManager({
   responsibles,
   centers,
   centerResponsibleCounts,
+  allSchedules,
 }: ResponsiblesManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ResponsibleWithCenters | null>(null);
+  const [scheduling, setScheduling] = useState<ResponsibleWithCenters | null>(null);
   const [selectedCenters, setSelectedCenters] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -157,9 +161,12 @@ export function ResponsiblesManager({
                       {resp.active ? "Activo" : "Inactivo"}
                     </Badge>
                   </td>
-                  <td className="py-3 flex gap-2">
+                  <td className="py-3 flex gap-2 flex-wrap">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(resp)}>
                       Asignar centros
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setScheduling(resp)}>
+                      Horario
                     </Button>
                     <Button
                       variant="ghost"
@@ -240,6 +247,18 @@ export function ResponsiblesManager({
           ))}
         </div>
       </Modal>
+
+      {scheduling && (
+        <ScheduleEditor
+          open={!!scheduling}
+          onClose={() => setScheduling(null)}
+          responsibleId={scheduling.id}
+          responsibleName={scheduling.full_name}
+          centers={centers}
+          centerIds={scheduling.center_ids}
+          existingSchedules={allSchedules.filter((s) => s.responsible_id === scheduling.id)}
+        />
+      )}
     </div>
   );
 }

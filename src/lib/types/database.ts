@@ -42,6 +42,17 @@ export interface ResponsibleCenter {
   profiles?: Profile;
 }
 
+export interface ResponsibleSchedule {
+  id: string;
+  responsible_id: string;
+  center_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  created_at: string;
+  centers?: Center;
+}
+
 export interface Employee {
   id: string;
   center_id: string;

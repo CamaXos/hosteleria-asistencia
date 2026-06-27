@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   createEmployee,
   deactivateEmployee,
@@ -132,7 +133,10 @@ export function EmployeesManager({ employees, centers }: EmployeesManagerProps) 
                       {emp.active ? "Activo" : "Inactivo"}
                     </Badge>
                   </td>
-                  <td className="py-3 flex gap-2">
+                  <td className="py-3 flex gap-2 flex-wrap">
+                    <Link href={`/admin/employees/${emp.id}/history`}>
+                      <Button variant="ghost" size="sm">Ver historial</Button>
+                    </Link>
                     <Button variant="ghost" size="sm" onClick={() => { setEditing(emp); setShowForm(true); }}>
                       Editar
                     </Button>

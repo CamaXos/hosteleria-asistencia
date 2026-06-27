@@ -16,8 +16,15 @@ export function formatDateTime(date: string | Date): string {
   return format(d, "dd/MM/yyyy HH:mm", { locale: es });
 }
 
+const MADRID_TZ = "Europe/Madrid";
+
 export function getTodayISO(): string {
-  return format(new Date(), "yyyy-MM-dd");
+  return new Intl.DateTimeFormat("en-CA", { timeZone: MADRID_TZ }).format(new Date());
+}
+
+export function formatTime(date: string | Date): string {
+  const d = typeof date === "string" ? parseISO(date) : date;
+  return format(d, "HH:mm", { locale: es });
 }
 
 export function getMonthDays(year: number, month: number): number {

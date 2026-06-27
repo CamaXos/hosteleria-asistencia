@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ClipboardList } from "lucide-react";
+import { Building2, ClipboardList, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/shared/LogoutButton";
 
@@ -14,6 +14,7 @@ interface ResponsibleShellProps {
 export function ResponsibleShell({ userName, children }: ResponsibleShellProps) {
   const pathname = usePathname();
   const isHome = pathname === "/responsible";
+  const isStats = pathname.startsWith("/responsible/stats");
   const isReport = pathname.includes("/report/");
 
   return (
@@ -37,7 +38,7 @@ export function ResponsibleShell({ userName, children }: ResponsibleShellProps) 
 
       <main className={cn(
         "mx-auto w-full max-w-2xl flex-1 p-4",
-        isReport && "pb-24"
+        (isReport || isStats) && "pb-24"
       )}>
         {children}
       </main>
@@ -56,6 +57,18 @@ export function ResponsibleShell({ userName, children }: ResponsibleShellProps) 
           >
             <Building2 className="h-5 w-5" />
             Mis centros
+          </Link>
+          <Link
+            href="/responsible/stats"
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors touch-target",
+              isStats
+                ? "text-[var(--primary)]"
+                : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <BarChart3 className="h-5 w-5" />
+            Estadísticas
           </Link>
         </div>
       </nav>

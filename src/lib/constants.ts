@@ -47,3 +47,23 @@ export const ROLE_LABELS = {
   admin: "Administrador",
   responsible: "Responsable",
 } as const;
+
+export const DAY_OF_WEEK_LABELS: Record<number, string> = {
+  1: "Lunes",
+  2: "Martes",
+  3: "Miércoles",
+  4: "Jueves",
+  5: "Viernes",
+  6: "Sábado",
+  7: "Domingo",
+};
+
+export const DAY_OF_WEEK_SHORT: Record<number, string> = {
+  1: "Lun",
+  2: "Mar",
+  3: "Mié",
+  4: "Jue",
+  5: "Vie",
+  6: "Sáb",
+  7: "Dom",
+};

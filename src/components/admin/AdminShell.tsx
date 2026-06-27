@@ -13,11 +13,13 @@ import {
   Menu,
   X,
   ClipboardList,
+  Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/shared/LogoutButton";
 
 const navItems = [
+  { href: "/admin/hoy", label: "Hoy", icon: Sun, primary: true },
   { href: "/admin", label: "Panel", icon: LayoutDashboard },
   { href: "/admin/analytics", label: "Analíticas", icon: BarChart3 },
   { href: "/admin/centers", label: "Centros", icon: Building2 },
@@ -66,7 +68,8 @@ export function AdminShell({ userName, children }: AdminShellProps) {
                 "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors touch-target",
                 active
                   ? "bg-[var(--primary-light)] text-[var(--primary)]"
-                  : "text-slate-600 hover:bg-slate-50"
+                  : "text-slate-600 hover:bg-slate-50",
+                "primary" in item && item.primary && !active && "font-semibold text-[var(--primary)]"
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />
