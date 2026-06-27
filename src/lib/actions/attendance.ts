@@ -11,8 +11,7 @@ import type {
   MonthlyAttendanceRow,
   ReportWithDetails,
 } from "@/lib/types/database";
-import { emptyTotals } from "@/lib/utils";
-import { getMonthDays, getTodayISO } from "@/lib/utils";
+import { emptyTotals, getMonthDays, getTodayISO, mapAttendanceSubmitError } from "@/lib/utils";
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const supabase = await createClient();
@@ -115,16 +114,20 @@ export async function submitAttendanceReport(
   notes?: string
 ): Promise<string> {
   const supabase = await createClient();
-  const today = getTodayISO();
 
   const { data, error } = await supabase.rpc("submit_attendance_report", {
     p_center_id: centerId,
-    p_report_date: today,
     p_notes: notes || null,
     p_entries: entries,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new Error(mapAttendanceSubmitError(error.message));
+  }
+
+  if (!data) {
+    throw new Error("No se pudo enviar el informe. Inténtalo de nuevo.");
+  }
 
   revalidatePath("/responsible");
   revalidatePath("/admin");

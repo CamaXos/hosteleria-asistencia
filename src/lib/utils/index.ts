@@ -34,6 +34,28 @@ export function getErrorMessage(error: unknown): string {
   return "Ha ocurrido un error inesperado";
 }
 
+export function mapAttendanceSubmitError(message: string): string {
+  if (message.includes("Could not find the function")) {
+    return "Error de configuración del servidor al enviar el informe. Contacta con el administrador.";
+  }
+  if (message.includes("Ya existe un informe")) {
+    return "Ya existe un informe de asistencia para este centro hoy.";
+  }
+  if (message.includes("No autenticado")) {
+    return "Tu sesión ha expirado. Vuelve a iniciar sesión.";
+  }
+  if (message.includes("Solo los responsables")) {
+    return "Solo los responsables pueden enviar informes de asistencia.";
+  }
+  if (message.includes("No tienes acceso")) {
+    return "No tienes acceso a este centro.";
+  }
+  if (message.includes("Empleado no pertenece")) {
+    return "Uno de los empleados seleccionados no pertenece a este centro.";
+  }
+  return message;
+}
+
 export function emptyTotals(): Record<import("@/lib/types/database").AttendanceStatus, number> {
   return {
     worked: 0,
