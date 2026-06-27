@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   createResponsible,
   updateResponsibleAssignments,
@@ -162,6 +163,9 @@ export function ResponsiblesManager({
                     </Badge>
                   </td>
                   <td className="py-3 flex gap-2 flex-wrap">
+                    <Link href={`/admin/responsibles/${resp.id}/history`}>
+                      <Button variant="ghost" size="sm">Ver historial</Button>
+                    </Link>
                     <Button variant="ghost" size="sm" onClick={() => openEdit(resp)}>
                       Asignar centros
                     </Button>

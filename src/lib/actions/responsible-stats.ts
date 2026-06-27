@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { subDays, format } from "date-fns";
 import { DAY_OF_WEEK_LABELS } from "@/lib/constants";
-import type { AttendanceStatus, Center, ResponsibleSchedule } from "@/lib/types/database";
+import { formatTimeMadrid, getTodayISO } from "@/lib/utils";
+import { isWorkingDayForCenter } from "@/lib/utils/responsible-calendar";
+import type { AttendanceStatus, Center, Profile, ResponsibleSchedule } from "@/lib/types/database";
 
 export interface ResponsibleSubmission {
   id: string;
@@ -330,4 +332,163 @@ export async function getEmployeeById(employeeId: string) {
   }
 
   return data;
+}
+
+export interface ResponsibleSubmissionEntry {
+  date: string;
+  centerId: string;
+  centerName: string;
+  status: "submitted" | "pending" | "off" | "future";
+  submittedAt: string | null;
+  submittedTime: string | null;
+}
+
+export interface ResponsibleSubmissionSummary {
+  submitted: number;
+  pending: number;
+  off: number;
+  future: number;
+}
+
+export async function getResponsibleById(responsibleId: string) {
+  const supabase = await createClient();
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", responsibleId)
+    .eq("role", "responsible")
+    .maybeSingle();
+
+  if (error || !profile) {
+    console.error("getResponsibleById:", error?.message);
+    return null;
+  }
+
+  const { data: assignments } = await supabase
+    .from("responsible_centers")
+    .select("center_id, centers(id, name, active)")
+    .eq("responsible_id", responsibleId);
+
+  const centers =
+    assignments
+      ?.map((a) => a.centers as unknown as Center)
+      .filter((c) => c && c.active) || [];
+
+  return {
+    ...(profile as Profile),
+    centers,
+  };
+}
+
+export async function getResponsibleSubmissionHistory(
+  responsibleId: string,
+  year: number,
+  month: number
+): Promise<{
+  entries: ResponsibleSubmissionEntry[];
+  summary: ResponsibleSubmissionSummary;
+  responsibleName: string;
+  centerNames: string[];
+}> {
+  const supabase = await createClient();
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+  const today = getTodayISO();
+
+  const responsible = await getResponsibleById(responsibleId);
+  if (!responsible) {
+    return {
+      entries: [],
+      summary: { submitted: 0, pending: 0, off: 0, future: 0 },
+      responsibleName: "—",
+      centerNames: [],
+    };
+  }
+
+  const [{ data: reports, error: reportsError }, { data: schedules }] = await Promise.all([
+    supabase
+      .from("attendance_reports")
+      .select("center_id, report_date, submitted_at, center:centers(name)")
+      .eq("submitted_by", responsibleId)
+      .gte("report_date", startDate)
+      .lte("report_date", endDate),
+    supabase
+      .from("responsible_schedules")
+      .select("*")
+      .eq("responsible_id", responsibleId),
+  ]);
+
+  if (reportsError) {
+    console.error("getResponsibleSubmissionHistory reports:", reportsError.message);
+    return {
+      entries: [],
+      summary: { submitted: 0, pending: 0, off: 0, future: 0 },
+      responsibleName: responsible.full_name,
+      centerNames: responsible.centers.map((c) => c.name),
+    };
+  }
+
+  const reportMap = new Map<string, { submittedAt: string; centerName: string }>();
+  for (const r of reports || []) {
+    const key = `${r.report_date}|${r.center_id}`;
+    reportMap.set(key, {
+      submittedAt: r.submitted_at,
+      centerName: getRelationName(r.center),
+    });
+  }
+
+  const scheduleRows = (schedules as ResponsibleSchedule[]) || [];
+  const entries: ResponsibleSubmissionEntry[] = [];
+  const summary: ResponsibleSubmissionSummary = {
+    submitted: 0,
+    pending: 0,
+    off: 0,
+    future: 0,
+  };
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    for (const center of responsible.centers) {
+      const reportKey = `${date}|${center.id}`;
+      const report = reportMap.get(reportKey);
+      const workingDay = isWorkingDayForCenter(date, center.id, scheduleRows);
+
+      let status: ResponsibleSubmissionEntry["status"];
+
+      if (date > today) {
+        status = "future";
+        summary.future++;
+      } else if (report) {
+        status = "submitted";
+        summary.submitted++;
+      } else if (workingDay) {
+        status = "pending";
+        summary.pending++;
+      } else {
+        status = "off";
+        summary.off++;
+      }
+
+      entries.push({
+        date,
+        centerId: center.id,
+        centerName: report?.centerName || center.name,
+        status,
+        submittedAt: report?.submittedAt ?? null,
+        submittedTime: report?.submittedAt ? formatTimeMadrid(report.submittedAt) : null,
+      });
+    }
+  }
+
+  entries.sort((a, b) => b.date.localeCompare(a.date) || a.centerName.localeCompare(b.centerName));
+
+  return {
+    entries,
+    summary,
+    responsibleName: responsible.full_name,
+    centerNames: responsible.centers.map((c) => c.name),
+  };
 }

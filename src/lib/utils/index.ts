@@ -34,6 +34,16 @@ export function formatTime(date: string | Date): string {
   return format(d, "HH:mm", { locale: es });
 }
 
+export function formatTimeMadrid(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("es-ES", {
+    timeZone: MADRID_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
 export function getMonthDays(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
