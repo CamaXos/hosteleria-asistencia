@@ -11,9 +11,10 @@ import {
   ATTENDANCE_STATUS_CODES,
   ATTENDANCE_STATUS_LABELS,
 } from "@/lib/constants";
-import type {
-  EmployeeHistoryEntry,
-  EmployeeHistorySummary,
+import {
+  getEmployeeHistory,
+  type EmployeeHistoryEntry,
+  type EmployeeHistorySummary,
 } from "@/lib/actions/responsible-stats";
 import type { AttendanceStatus } from "@/lib/types/database";
 import { ArrowLeft } from "lucide-react";
@@ -26,10 +27,6 @@ interface EmployeeHistoryViewProps {
   initialSummary: EmployeeHistorySummary;
   initialYear: number;
   initialMonth: number;
-  onMonthChange: (year: number, month: number) => Promise<{
-    entries: EmployeeHistoryEntry[];
-    summary: EmployeeHistorySummary;
-  }>;
 }
 
 const MONTHS = [
@@ -65,7 +62,6 @@ export function EmployeeHistoryView({
   initialSummary,
   initialYear,
   initialMonth,
-  onMonthChange,
 }: EmployeeHistoryViewProps) {
   const now = new Date();
   const [year, setYear] = useState(initialYear);
@@ -78,9 +74,22 @@ export function EmployeeHistoryView({
 
   function handleFilter() {
     startTransition(async () => {
-      const result = await onMonthChange(year, month);
-      setEntries(result.entries);
-      setSummary(result.summary);
+      try {
+        const result = await getEmployeeHistory(employeeId, year, month);
+        setEntries(result.entries);
+        setSummary(result.summary);
+      } catch {
+        setEntries([]);
+        setSummary({
+          worked: 0,
+          day_off: 0,
+          vacation: 0,
+          absence: 0,
+          sick: 0,
+          inactive: 0,
+          other: 0,
+        });
+      }
     });
   }
 

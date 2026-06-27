@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import {
   getEmployeeHistory,
   getEmployeeById,
+  type EmployeeHistorySummary,
 } from "@/lib/actions/responsible-stats";
 import { EmployeeHistoryView } from "@/components/admin/EmployeeHistoryView";
 
@@ -9,7 +10,7 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-const EMPTY_SUMMARY = {
+const EMPTY_SUMMARY: EmployeeHistorySummary = {
   worked: 0,
   day_off: 0,
   vacation: 0,
@@ -17,7 +18,7 @@ const EMPTY_SUMMARY = {
   sick: 0,
   inactive: 0,
   other: 0,
-} as const;
+};
 
 export default async function EmployeeHistoryPage({ params }: PageProps) {
   const { id } = await params;
@@ -29,7 +30,7 @@ export default async function EmployeeHistoryPage({ params }: PageProps) {
   const month = now.getMonth() + 1;
 
   let entries: Awaited<ReturnType<typeof getEmployeeHistory>>["entries"] = [];
-  let summary = { ...EMPTY_SUMMARY };
+  let summary: EmployeeHistorySummary = { ...EMPTY_SUMMARY };
 
   try {
     const result = await getEmployeeHistory(id, year, month);

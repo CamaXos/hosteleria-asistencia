@@ -213,11 +213,20 @@ export async function getEmployeeHistory(
   const daysInMonth = new Date(year, month, 0).getDate();
   const endDate = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
 
-  const { data: employee } = await supabase
+  const { data: employee, error: employeeError } = await supabase
     .from("employees")
     .select("full_name")
     .eq("id", employeeId)
-    .single();
+    .maybeSingle();
+
+  if (employeeError) {
+    console.error("getEmployeeHistory employee:", employeeError.message);
+    return {
+      entries: [],
+      summary: { worked: 0, day_off: 0, vacation: 0, absence: 0, sick: 0, inactive: 0, other: 0 },
+      employeeName: "—",
+    };
+  }
 
   if (!employee) {
     return {
@@ -227,11 +236,20 @@ export async function getEmployeeHistory(
     };
   }
 
-  const { data: reports } = await supabase
+  const { data: reports, error: reportsError } = await supabase
     .from("attendance_reports")
     .select("id, report_date, center:centers(name)")
     .gte("report_date", startDate)
     .lte("report_date", endDate);
+
+  if (reportsError) {
+    console.error("getEmployeeHistory reports:", reportsError.message);
+    return {
+      entries: [],
+      summary: { worked: 0, day_off: 0, vacation: 0, absence: 0, sick: 0, inactive: 0, other: 0 },
+      employeeName: employee.full_name,
+    };
+  }
 
   if (!reports?.length) {
     return {
@@ -249,11 +267,20 @@ export async function getEmployeeHistory(
   );
   const reportIds = reports.map((r) => r.id);
 
-  const { data: rawEntries } = await supabase
+  const { data: rawEntries, error: entriesError } = await supabase
     .from("attendance_entries")
     .select("status, notes, report_id")
     .eq("employee_id", employeeId)
     .in("report_id", reportIds);
+
+  if (entriesError) {
+    console.error("getEmployeeHistory entries:", entriesError.message);
+    return {
+      entries: [],
+      summary: { worked: 0, day_off: 0, vacation: 0, absence: 0, sick: 0, inactive: 0, other: 0 },
+      employeeName: employee.full_name,
+    };
+  }
 
   const summary: EmployeeHistorySummary = {
     worked: 0,
@@ -272,7 +299,9 @@ export async function getEmployeeHistory(
     if (!report) return;
 
     const status = e.status as AttendanceStatus;
-    summary[status]++;
+    if (status in summary) {
+      summary[status]++;
+    }
 
     history.push({
       date: report.date,
@@ -289,10 +318,16 @@ export async function getEmployeeHistory(
 
 export async function getEmployeeById(employeeId: string) {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("employees")
     .select("*, centers(name)")
     .eq("id", employeeId)
-    .single();
+    .maybeSingle();
+
+  if (error) {
+    console.error("getEmployeeById:", error.message);
+    return null;
+  }
+
   return data;
 }
