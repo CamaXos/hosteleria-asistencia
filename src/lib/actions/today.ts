@@ -42,6 +42,8 @@ export interface PendingResponsible {
 
 export interface TodayOverview {
   dateISO: string;
+  centerId: string | null;
+  activeCenters: { id: string; name: string }[];
   kpis: {
     activeEmployees: number;
     workedToday: number;
@@ -171,27 +173,48 @@ async function getPendingResponsibles(
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 
-export async function getDailyOverview(dateISO: string): Promise<TodayOverview> {
+export async function getDailyOverview(
+  dateISO: string,
+  centerId?: string | null
+): Promise<TodayOverview> {
   const supabase = await createClient();
   const today = dateISO;
+  const filterCenterId = centerId || null;
+
+  let activeEmployeesQuery = supabase
+    .from("employees")
+    .select("*", { count: "exact", head: true })
+    .eq("active", true);
+  if (filterCenterId) {
+    activeEmployeesQuery = activeEmployeesQuery.eq("center_id", filterCenterId);
+  }
+
+  let todayReportsQuery = supabase
+    .from("attendance_reports")
+    .select(`
+      *,
+      center:centers(*),
+      submitter:profiles!attendance_reports_submitted_by_fkey(full_name)
+    `)
+    .eq("report_date", today)
+    .order("submitted_at", { ascending: false });
+  if (filterCenterId) {
+    todayReportsQuery = todayReportsQuery.eq("center_id", filterCenterId);
+  }
 
   const [
     { count: activeEmployees },
-    { data: activeCenters },
+    { data: allActiveCenters },
     { data: todayReports },
   ] = await Promise.all([
-    supabase.from("employees").select("*", { count: "exact", head: true }).eq("active", true),
+    activeEmployeesQuery,
     supabase.from("centers").select("*").eq("active", true).order("name"),
-    supabase
-      .from("attendance_reports")
-      .select(`
-        *,
-        center:centers(*),
-        submitter:profiles!attendance_reports_submitted_by_fkey(full_name)
-      `)
-      .eq("report_date", today)
-      .order("submitted_at", { ascending: false }),
+    todayReportsQuery,
   ]);
+
+  const activeCenters = filterCenterId
+    ? (allActiveCenters || []).filter((c) => c.id === filterCenterId)
+    : allActiveCenters || [];
 
   const reportMap = new Map(
     todayReports?.map((r) => [r.center_id, r]) || []
@@ -281,6 +304,8 @@ export async function getDailyOverview(dateISO: string): Promise<TodayOverview> 
 
   return {
     dateISO: today,
+    centerId: filterCenterId,
+    activeCenters: (allActiveCenters || []).map((c) => ({ id: c.id, name: c.name })),
     kpis,
     centers,
     attended,

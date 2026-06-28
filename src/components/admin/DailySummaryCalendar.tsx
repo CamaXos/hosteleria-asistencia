@@ -30,6 +30,7 @@ const MONTHS = [
 
 interface DailySummaryCalendarProps {
   selectedDate: string;
+  selectedCenter: string | null;
   initialReportDays: MonthReportDay[];
 }
 
@@ -40,6 +41,7 @@ function parseYearMonth(dateISO: string): { year: number; month: number } {
 
 export function DailySummaryCalendar({
   selectedDate,
+  selectedCenter,
   initialReportDays,
 }: DailySummaryCalendarProps) {
   const router = useRouter();
@@ -49,6 +51,14 @@ export function DailySummaryCalendar({
   const [viewMonth, setViewMonth] = useState(selected.month);
   const [reportDays, setReportDays] = useState<MonthReportDay[]>(initialReportDays);
   const [isPending, startTransition] = useTransition();
+
+  function buildUrl(date: string) {
+    const params = new URLSearchParams({ date });
+    if (selectedCenter) {
+      params.set("center", selectedCenter);
+    }
+    return `/admin/resumen-diario?${params.toString()}`;
+  }
 
   useEffect(() => {
     const { year, month } = parseYearMonth(selectedDate);
@@ -114,11 +124,11 @@ export function DailySummaryCalendar({
   }
 
   function selectDate(date: string) {
-    router.push(`/admin/resumen-diario?date=${date}`);
+    router.push(buildUrl(date));
   }
 
   function goToToday() {
-    router.push(`/admin/resumen-diario?date=${today}`);
+    router.push(buildUrl(today));
   }
 
   const isTodaySelected = selectedDate === today;

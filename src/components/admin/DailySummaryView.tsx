@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { Card, KpiCard } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Select } from "@/components/ui/Select";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DailySummaryCalendar } from "@/components/admin/DailySummaryCalendar";
+import { DailySummaryCenterFilter } from "@/components/admin/DailySummaryCenterFilter";
 import { formatDateLong, formatDateTime, formatTime } from "@/lib/utils";
 import type { MonthReportDay, TodayOverview } from "@/lib/actions/today";
 import {
@@ -25,25 +24,19 @@ import {
 interface DailySummaryViewProps {
   data: TodayOverview;
   selectedDate: string;
+  selectedCenter: string | null;
   reportDays: MonthReportDay[];
 }
 
-export function DailySummaryView({ data, selectedDate, reportDays }: DailySummaryViewProps) {
-  const [attendedFilter, setAttendedFilter] = useState("");
-  const [notAttendedFilter, setNotAttendedFilter] = useState("");
-
-  const centerOptions = data.centers.map((c) => ({
-    value: c.center.id,
-    label: c.center.name,
-  }));
-
-  const filteredAttended = attendedFilter
-    ? data.attended.filter((e) => e.centerId === attendedFilter)
-    : data.attended;
-
-  const filteredNotAttended = notAttendedFilter
-    ? data.notAttended.filter((e) => e.centerId === notAttendedFilter)
-    : data.notAttended;
+export function DailySummaryView({
+  data,
+  selectedDate,
+  selectedCenter,
+  reportDays,
+}: DailySummaryViewProps) {
+  const selectedCenterName = selectedCenter
+    ? data.activeCenters.find((c) => c.id === selectedCenter)?.name
+    : null;
 
   return (
     <div className="space-y-6">
@@ -56,8 +49,23 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
 
       <DailySummaryCalendar
         selectedDate={selectedDate}
+        selectedCenter={selectedCenter}
         initialReportDays={reportDays}
       />
+
+      {data.activeCenters.length > 0 && (
+        <DailySummaryCenterFilter
+          centers={data.activeCenters}
+          selectedCenter={selectedCenter}
+          selectedDate={selectedDate}
+        />
+      )}
+
+      {selectedCenterName && (
+        <p className="text-sm text-slate-600">
+          Mostrando datos de <span className="font-medium text-[var(--primary)]">{selectedCenterName}</span>
+        </p>
+      )}
 
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
@@ -119,7 +127,11 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
       ) : data.centers.length > 0 && data.pendingCenters.length === 0 ? (
         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
-          <span className="font-medium text-emerald-800">Todos los centros han enviado parte</span>
+          <span className="font-medium text-emerald-800">
+            {selectedCenterName
+              ? `${selectedCenterName} ha enviado el parte`
+              : "Todos los centros han enviado parte"}
+          </span>
         </div>
       ) : null}
 
@@ -237,17 +249,8 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
       )}
 
       {/* Attended */}
-      <Card title="Personas que asistieron" description={`${filteredAttended.length} empleados`}>
-        <div className="mb-4 max-w-xs">
-          <Select
-            label="Filtrar por centro"
-            value={attendedFilter}
-            onChange={(e) => setAttendedFilter(e.target.value)}
-            options={centerOptions}
-            placeholder="Todos los centros"
-          />
-        </div>
-        {filteredAttended.length === 0 ? (
+      <Card title="Personas que asistieron" description={`${data.attended.length} empleados`}>
+        {data.attended.length === 0 ? (
           <p className="text-sm text-slate-500">Nadie ha registrado asistencia para este día.</p>
         ) : (
           <>
@@ -261,7 +264,7 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAttended.map((e) => (
+                  {data.attended.map((e) => (
                     <tr key={e.employeeId} className="border-b border-slate-50">
                       <td className="py-3 pr-4 font-medium">{e.employeeName}</td>
                       <td className="py-3 pr-4 text-slate-600">{e.centerName}</td>
@@ -272,7 +275,7 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
               </table>
             </div>
             <div className="space-y-2 md:hidden">
-              {filteredAttended.map((e) => (
+              {data.attended.map((e) => (
                 <div key={e.employeeId} className="flex items-center justify-between rounded-lg border border-green-100 bg-green-50/50 px-3 py-2.5">
                   <div>
                     <p className="font-medium text-slate-900">{e.employeeName}</p>
@@ -287,17 +290,8 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
       </Card>
 
       {/* Not attended */}
-      <Card title="Personas que no asistieron" description={`${filteredNotAttended.length} registros`}>
-        <div className="mb-4 max-w-xs">
-          <Select
-            label="Filtrar por centro"
-            value={notAttendedFilter}
-            onChange={(e) => setNotAttendedFilter(e.target.value)}
-            options={centerOptions}
-            placeholder="Todos los centros"
-          />
-        </div>
-        {filteredNotAttended.length === 0 ? (
+      <Card title="Personas que no asistieron" description={`${data.notAttended.length} registros`}>
+        {data.notAttended.length === 0 ? (
           <p className="text-sm text-slate-500">Sin ausencias registradas.</p>
         ) : (
           <>
@@ -312,7 +306,7 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredNotAttended.map((e) => (
+                  {data.notAttended.map((e) => (
                     <tr key={`${e.employeeId}-${e.status}`} className="border-b border-slate-50">
                       <td className="py-3 pr-4 font-medium">{e.employeeName}</td>
                       <td className="py-3 pr-4 text-slate-600">{e.centerName}</td>
@@ -324,7 +318,7 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
               </table>
             </div>
             <div className="space-y-2 md:hidden">
-              {filteredNotAttended.map((e) => (
+              {data.notAttended.map((e) => (
                 <div key={`${e.employeeId}-${e.status}`} className="rounded-lg border border-slate-100 px-3 py-2.5">
                   <div className="flex items-center justify-between">
                     <p className="font-medium text-slate-900">{e.employeeName}</p>
