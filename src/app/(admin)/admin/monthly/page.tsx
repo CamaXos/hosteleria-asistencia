@@ -1,9 +1,5 @@
-import { getCenters } from "@/lib/actions/centers";
-import { getEmployees } from "@/lib/actions/employees";
-import { MonthlyGrid } from "@/components/admin/MonthlyGrid";
+import { redirect } from "next/navigation";
 
-export default async function MonthlyPage() {
-  const [centers, employees] = await Promise.all([getCenters(), getEmployees()]);
-
-  return <MonthlyGrid centers={centers} employees={employees} />;
+export default function MonthlyPage() {
+  redirect("/admin/analytics#grid");
 }

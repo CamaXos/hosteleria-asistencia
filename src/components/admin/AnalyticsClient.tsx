@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getMonthlyTrends } from "@/lib/actions/analytics";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
@@ -11,26 +11,39 @@ import type { MonthlyTrendPoint, EmployeeAtRisk, CenterSubmissionRate } from "@/
 import { BarChart3, TrendingUp } from "lucide-react";
 
 interface AnalyticsClientProps {
-  initialYear: number;
-  initialMonth: number;
   centers: Center[];
   initialTrends: MonthlyTrendPoint[];
   atRisk: EmployeeAtRisk[];
   centerRates: CenterSubmissionRate[];
+  embedded?: boolean;
+  initialYear?: number;
+  initialMonth?: number;
+  year?: number;
+  month?: number;
+  centerId?: string;
 }
 
 export function AnalyticsClient({
-  initialYear,
-  initialMonth,
   centers,
   initialTrends,
   atRisk,
   centerRates,
+  embedded = false,
+  initialYear,
+  initialMonth,
+  year: controlledYear,
+  month: controlledMonth,
+  centerId: controlledCenterId,
 }: AnalyticsClientProps) {
   const now = new Date();
-  const [year, setYear] = useState(initialYear);
-  const [month, setMonth] = useState(initialMonth);
-  const [centerId, setCenterId] = useState("");
+  const [internalYear, setInternalYear] = useState(initialYear ?? now.getFullYear());
+  const [internalMonth, setInternalMonth] = useState(initialMonth ?? now.getMonth() + 1);
+  const [internalCenterId, setInternalCenterId] = useState("");
+
+  const year = controlledYear ?? internalYear;
+  const month = controlledMonth ?? internalMonth;
+  const centerId = controlledCenterId ?? internalCenterId;
+
   const [trends, setTrends] = useState(initialTrends);
   const [loading, setLoading] = useState(false);
 
@@ -44,10 +57,16 @@ export function AnalyticsClient({
     }
   }, []);
 
+  useEffect(() => {
+    if (embedded && controlledYear !== undefined && controlledMonth !== undefined) {
+      loadTrends(controlledYear, controlledMonth, controlledCenterId ?? "");
+    }
+  }, [embedded, controlledYear, controlledMonth, controlledCenterId, loadTrends]);
+
   function handleFilterChange(y: number, m: number, cId: string) {
-    setYear(y);
-    setMonth(m);
-    setCenterId(cId);
+    setInternalYear(y);
+    setInternalMonth(m);
+    setInternalCenterId(cId);
     loadTrends(y, m, cId);
   }
 
@@ -68,36 +87,42 @@ export function AnalyticsClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary-light)] text-[var(--primary)]">
-          <BarChart3 className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Analíticas</h1>
-          <p className="text-sm text-slate-500">Tendencias y métricas de asistencia</p>
-        </div>
-      </div>
+      {!embedded && (
+        <>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary-light)] text-[var(--primary)]">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Analíticas</h1>
+              <p className="text-sm text-slate-500">Tendencias y métricas de asistencia</p>
+            </div>
+          </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Select
-          label="Año"
-          value={String(year)}
-          onChange={(e) => handleFilterChange(Number(e.target.value), month, centerId)}
-          options={yearOptions}
-        />
-        <Select
-          label="Mes"
-          value={String(month)}
-          onChange={(e) => handleFilterChange(year, Number(e.target.value), centerId)}
-          options={monthOptions}
-        />
-        <Select
-          label="Centro"
-          value={centerId}
-          onChange={(e) => handleFilterChange(year, month, e.target.value)}
-          options={centerOptions}
-        />
-      </div>
+          <Card>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Select
+                label="Año"
+                value={String(year)}
+                onChange={(e) => handleFilterChange(Number(e.target.value), month, centerId)}
+                options={yearOptions}
+              />
+              <Select
+                label="Mes"
+                value={String(month)}
+                onChange={(e) => handleFilterChange(year, Number(e.target.value), centerId)}
+                options={monthOptions}
+              />
+              <Select
+                label="Centro"
+                value={centerId}
+                onChange={(e) => handleFilterChange(year, month, e.target.value)}
+                options={centerOptions}
+              />
+            </div>
+          </Card>
+        </>
+      )}
 
       <Card
         title="Tendencia mensual"

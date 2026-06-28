@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         destination: "/admin/resumen-diario",
         permanent: true,
       },
+      {
+        source: "/admin/monthly",
+        destination: "/admin/analytics",
+        permanent: true,
+      },
     ];
   },
 };

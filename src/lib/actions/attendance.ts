@@ -247,7 +247,7 @@ export async function adminCorrectEntry(
     .eq("id", entryId);
 
   if (error) throw new Error(error.message);
-  revalidatePath("/admin/monthly");
+  revalidatePath("/admin/analytics");
 }
 
 export async function getReportsForMonth(

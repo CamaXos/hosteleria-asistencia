@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { CalendarDays } from "lucide-react";
 import { getMonthlyAttendance } from "@/lib/actions/attendance";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +27,10 @@ interface MonthlyGridProps {
   title?: string;
   description?: string;
   sectionId?: string;
+  embedded?: boolean;
+  year?: number;
+  month?: number;
+  centerId?: string;
 }
 
 export function MonthlyGrid({
@@ -34,11 +39,20 @@ export function MonthlyGrid({
   title = "Cuadrícula mensual",
   description = "Vista de asistencia por empleado y día",
   sectionId,
+  embedded = false,
+  year: controlledYear,
+  month: controlledMonth,
+  centerId: controlledCenterId,
 }: MonthlyGridProps) {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [centerId, setCenterId] = useState(centers[0]?.id || "");
+  const [internalYear, setInternalYear] = useState(now.getFullYear());
+  const [internalMonth, setInternalMonth] = useState(now.getMonth() + 1);
+  const [internalCenterId, setInternalCenterId] = useState(centers[0]?.id || "");
+
+  const year = controlledYear ?? internalYear;
+  const month = controlledMonth ?? internalMonth;
+  const centerId = controlledCenterId ?? internalCenterId;
+
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [rows, setRows] = useState<MonthlyAttendanceRow[]>([]);
@@ -90,78 +104,94 @@ export function MonthlyGrid({
     downloadExcel(buffer, `asistencia_${centerName}_${month}_${year}.xlsx`);
   }
 
-  const HeadingTag = sectionId ? "h2" : "h1";
+  const HeadingTag = embedded ? "h2" : sectionId ? "h2" : "h1";
 
   return (
-    <section id={sectionId} className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <HeadingTag className="text-2xl font-bold text-gray-900">{title}</HeadingTag>
-          <p className="text-sm text-gray-500">{description}</p>
+    <div id={sectionId} className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-3">
+          {embedded && (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-light)] text-[var(--primary)]">
+              <CalendarDays className="h-4 w-4" />
+            </div>
+          )}
+          <div>
+            <HeadingTag className={embedded ? "text-lg font-semibold text-slate-900" : "text-2xl font-bold text-slate-900"}>
+              {title}
+            </HeadingTag>
+            <p className="text-sm text-slate-500">{description}</p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportCSV} disabled={rows.length === 0}>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={rows.length === 0}>
             Exportar CSV
           </Button>
-          <Button variant="outline" onClick={handleExportExcel} disabled={rows.length === 0}>
+          <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={rows.length === 0}>
             Exportar Excel
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Select
-          label="Centro"
-          options={centers.filter((c) => c.active).map((c) => ({ value: c.id, label: c.name }))}
-          value={centerId}
-          onChange={(e) => setCenterId(e.target.value)}
-        />
-        <Select
-          label="Mes"
-          options={monthOptions}
-          value={String(month)}
-          onChange={(e) => setMonth(Number(e.target.value))}
-        />
-        <Select
-          label="Año"
-          options={yearOptions}
-          value={String(year)}
-          onChange={(e) => setYear(Number(e.target.value))}
-        />
-        <Select
-          label="Empleado"
-          options={[
-            { value: "", label: "Todos" },
-            ...centerEmployees.map((e) => ({ value: e.id, label: e.full_name })),
-          ]}
-          value={employeeFilter}
-          onChange={(e) => setEmployeeFilter(e.target.value)}
-        />
-        <Select
-          label="Estado"
-          options={[
-            { value: "", label: "Todos" },
-            ...ALL_ATTENDANCE_STATUSES.map((s) => ({
-              value: s,
-              label: ATTENDANCE_STATUS_LABELS[s],
-            })),
-          ]}
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        />
-      </div>
+      {!embedded && (
+        <Card>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Select
+              label="Centro"
+              options={centers.filter((c) => c.active).map((c) => ({ value: c.id, label: c.name }))}
+              value={centerId}
+              onChange={(e) => setInternalCenterId(e.target.value)}
+            />
+            <Select
+              label="Mes"
+              options={monthOptions}
+              value={String(month)}
+              onChange={(e) => setInternalMonth(Number(e.target.value))}
+            />
+            <Select
+              label="Año"
+              options={yearOptions}
+              value={String(year)}
+              onChange={(e) => setInternalYear(Number(e.target.value))}
+            />
+          </div>
+        </Card>
+      )}
 
       <Card>
+        <div className="mb-4 grid gap-4 border-b border-slate-100 pb-4 sm:grid-cols-2">
+          <Select
+            label="Empleado"
+            options={[
+              { value: "", label: "Todos" },
+              ...centerEmployees.map((e) => ({ value: e.id, label: e.full_name })),
+            ]}
+            value={employeeFilter}
+            onChange={(e) => setEmployeeFilter(e.target.value)}
+          />
+          <Select
+            label="Estado"
+            options={[
+              { value: "", label: "Todos" },
+              ...ALL_ATTENDANCE_STATUSES.map((s) => ({
+                value: s,
+                label: ATTENDANCE_STATUS_LABELS[s],
+              })),
+            ]}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          />
+        </div>
+
         {loading ? (
-          <p className="text-sm text-gray-500">Cargando...</p>
+          <p className="text-sm text-slate-500">Cargando...</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-gray-500">No hay datos para este período.</p>
+          <p className="text-sm text-slate-500">No hay datos para este período.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-5 sm:-mx-6">
             <table className="text-xs">
               <thead>
-                <tr className="border-b text-left text-gray-500">
-                  <th className="sticky left-0 bg-white pb-2 pr-3 min-w-[140px]">Empleado</th>
+                <tr className="border-b text-left text-slate-500">
+                  <th className="sticky left-0 bg-white pb-2 pr-3 min-w-[140px] px-5 sm:px-6">Empleado</th>
                   {Array.from({ length: daysInMonth }, (_, i) => (
                     <th key={i + 1} className="pb-2 px-1 text-center w-8">{i + 1}</th>
                   ))}
@@ -174,8 +204,8 @@ export function MonthlyGrid({
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.employee.id} className="border-b border-gray-50">
-                    <td className="sticky left-0 bg-white py-2 pr-3 font-medium whitespace-nowrap">
+                  <tr key={row.employee.id} className="border-b border-slate-50">
+                    <td className="sticky left-0 bg-white py-2 pr-3 font-medium whitespace-nowrap px-5 sm:px-6">
                       {row.employee.full_name}
                     </td>
                     {Array.from({ length: daysInMonth }, (_, i) => {
@@ -185,7 +215,7 @@ export function MonthlyGrid({
                           {status ? (
                             <StatusBadge status={status} />
                           ) : (
-                            <span className="text-gray-300">·</span>
+                            <span className="text-slate-300">·</span>
                           )}
                         </td>
                       );
@@ -203,13 +233,13 @@ export function MonthlyGrid({
         )}
       </Card>
 
-      <Card title="Leyenda">
+      <Card title="Leyenda" description="Códigos de estado de asistencia">
         <div className="flex flex-wrap gap-3">
           {ALL_ATTENDANCE_STATUSES.map((s) => (
             <StatusBadge key={s} status={s} showLabel />
           ))}
         </div>
       </Card>
-    </section>
+    </div>
   );
 }

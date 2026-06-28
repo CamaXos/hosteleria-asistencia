@@ -8,7 +8,6 @@ import {
   Building2,
   Users,
   UserCog,
-  CalendarDays,
   BarChart3,
   Menu,
   X,
@@ -25,7 +24,6 @@ const navItems = [
   { href: "/admin/centers", label: "Centros", icon: Building2 },
   { href: "/admin/employees", label: "Empleados", icon: Users },
   { href: "/admin/responsibles", label: "Responsables", icon: UserCog },
-  { href: "/admin/monthly", label: "Cuadrícula", icon: CalendarDays },
 ];
 
 interface AdminShellProps {

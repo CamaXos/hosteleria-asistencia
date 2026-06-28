@@ -1,8 +1,7 @@
 import { getCenters } from "@/lib/actions/centers";
 import { getEmployees } from "@/lib/actions/employees";
 import { getMonthlyTrends, getEmployeesAtRisk, getCenterSubmissionRates } from "@/lib/actions/analytics";
-import { AnalyticsClient } from "@/components/admin/AnalyticsClient";
-import { MonthlyGrid } from "@/components/admin/MonthlyGrid";
+import { AnalyticsPageClient } from "@/components/admin/AnalyticsPageClient";
 
 export default async function AnalyticsPage() {
   const now = new Date();
@@ -20,21 +19,14 @@ export default async function AnalyticsPage() {
   const activeCenters = centers.filter((c) => c.active);
 
   return (
-    <div className="space-y-8">
-      <MonthlyGrid
-        centers={activeCenters}
-        employees={employees}
-        title="Cuadrícula mensual de asistencia"
-        sectionId="grid"
-      />
-      <AnalyticsClient
-        initialYear={year}
-        initialMonth={month}
-        centers={activeCenters}
-        initialTrends={trends}
-        atRisk={atRisk}
-        centerRates={centerRates}
-      />
-    </div>
+    <AnalyticsPageClient
+      initialYear={year}
+      initialMonth={month}
+      centers={activeCenters}
+      employees={employees}
+      initialTrends={trends}
+      atRisk={atRisk}
+      centerRates={centerRates}
+    />
   );
 }
