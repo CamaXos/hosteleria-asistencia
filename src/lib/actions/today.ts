@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { AttendanceStatus, Center } from "@/lib/types/database";
+import { getMonthDays } from "@/lib/utils";
 
 export interface CenterTodayStatus {
   center: Center;
@@ -176,4 +177,42 @@ export async function getDailyOverview(dateISO: string): Promise<TodayOverview> 
     submissions,
     pendingCenters,
   };
+}
+
+export interface MonthReportDay {
+  date: string;
+  reportCount: number;
+  complete: boolean;
+}
+
+export async function getMonthReportDays(
+  year: number,
+  month: number
+): Promise<MonthReportDay[]> {
+  const supabase = await createClient();
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(getMonthDays(year, month)).padStart(2, "0")}`;
+
+  const [{ count: activeCenterCount }, { data: reports }] = await Promise.all([
+    supabase.from("centers").select("*", { count: "exact", head: true }).eq("active", true),
+    supabase
+      .from("attendance_reports")
+      .select("report_date")
+      .gte("report_date", startDate)
+      .lte("report_date", endDate),
+  ]);
+
+  const totalCenters = activeCenterCount || 0;
+  const byDate = new Map<string, number>();
+  reports?.forEach((r) => {
+    byDate.set(r.report_date, (byDate.get(r.report_date) || 0) + 1);
+  });
+
+  return Array.from(byDate.entries())
+    .map(([date, reportCount]) => ({
+      date,
+      reportCount,
+      complete: totalCenters > 0 && reportCount >= totalCenters,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }

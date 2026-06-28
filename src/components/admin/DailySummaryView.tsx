@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Card, KpiCard } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
-import { Input } from "@/components/ui/Input";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { DailySummaryCalendar } from "@/components/admin/DailySummaryCalendar";
 import { formatDateLong, formatDateTime, formatTime } from "@/lib/utils";
-import type { TodayOverview } from "@/lib/actions/today";
+import type { MonthReportDay, TodayOverview } from "@/lib/actions/today";
 import {
   Users,
   CheckCircle2,
@@ -25,10 +24,10 @@ import {
 interface DailySummaryViewProps {
   data: TodayOverview;
   selectedDate: string;
+  reportDays: MonthReportDay[];
 }
 
-export function DailySummaryView({ data, selectedDate }: DailySummaryViewProps) {
-  const router = useRouter();
+export function DailySummaryView({ data, selectedDate, reportDays }: DailySummaryViewProps) {
   const [attendedFilter, setAttendedFilter] = useState("");
   const [notAttendedFilter, setNotAttendedFilter] = useState("");
 
@@ -45,32 +44,19 @@ export function DailySummaryView({ data, selectedDate }: DailySummaryViewProps) 
     ? data.notAttended.filter((e) => e.centerId === notAttendedFilter)
     : data.notAttended;
 
-  function handleDateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const newDate = e.target.value;
-    if (!newDate) return;
-    router.push(`/admin/resumen-diario?date=${newDate}`);
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Resumen diario</h1>
-          <p className="mt-1 text-sm capitalize text-slate-500">
-            {formatDateLong(data.dateISO)}
-          </p>
-        </div>
-        <div className="w-full sm:max-w-xs">
-          <Input
-            id="summary-date"
-            type="date"
-            label="Fecha"
-            value={selectedDate}
-            onChange={handleDateChange}
-            className="text-base"
-          />
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Resumen diario</h1>
+        <p className="mt-1 text-sm capitalize text-slate-500">
+          {formatDateLong(data.dateISO)}
+        </p>
       </div>
+
+      <DailySummaryCalendar
+        selectedDate={selectedDate}
+        initialReportDays={reportDays}
+      />
 
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
