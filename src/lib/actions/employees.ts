@@ -2,6 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/middleware";
+import { requireRole } from "@/lib/auth";
+import {
+  generateSecurePassword,
+} from "@/lib/auth/responsible-credentials";
+import {
+  normalizeUsername,
+  toInternalEmail,
+  validateUsername,
+  type ResponsibleCredentials,
+} from "@/lib/auth/responsible-auth";
 import { revalidatePath } from "next/cache";
 import {
   MAX_RESPONSIBLES_PER_CENTER,
@@ -170,36 +180,12 @@ export async function getResponsibles(): Promise<(Profile & { center_ids: string
   }));
 }
 
-export async function createResponsible(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const full_name = formData.get("full_name") as string;
-  const center_ids = formData.getAll("center_ids") as string[];
-
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY no configurada");
-  }
-
-  const serviceClient = createServiceClient();
-
-  const { data: authData, error: authError } =
-    await serviceClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name, role: "responsible" },
-    });
-
-  if (authError) throw new Error(authError.message);
-
-  const userId = authData.user.id;
-
-  await serviceClient
-    .from("profiles")
-    .update({ full_name, role: "responsible", active: true })
-    .eq("id", userId);
-
-  for (const centerId of center_ids) {
+async function assignCentersToResponsible(
+  serviceClient: ReturnType<typeof createServiceClient>,
+  userId: string,
+  centerIds: string[]
+) {
+  for (const centerId of centerIds) {
     const { data: count } = await serviceClient.rpc(
       "count_responsibles_for_center",
       { p_center_id: centerId }
@@ -216,8 +202,111 @@ export async function createResponsible(formData: FormData) {
       center_id: centerId,
     });
   }
+}
+
+export async function createResponsibleWithUsername(
+  username: string,
+  fullName: string,
+  centerIds: string[]
+): Promise<ResponsibleCredentials> {
+  await requireRole("admin");
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY no configurada");
+  }
+
+  const usernameError = validateUsername(username);
+  if (usernameError) throw new Error(usernameError);
+
+  const normalizedUsername = normalizeUsername(username);
+  const trimmedName = fullName.trim();
+  if (!trimmedName) throw new Error("El nombre completo es obligatorio");
+
+  const serviceClient = createServiceClient();
+
+  const { data: existing } = await serviceClient
+    .from("profiles")
+    .select("id")
+    .eq("username", normalizedUsername)
+    .maybeSingle();
+
+  if (existing) throw new Error("Este usuario ya está en uso");
+
+  const email = toInternalEmail(normalizedUsername);
+  const password = generateSecurePassword(12);
+
+  const { data: authData, error: authError } =
+    await serviceClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: trimmedName,
+        role: "responsible",
+        username: normalizedUsername,
+      },
+    });
+
+  if (authError) throw new Error(authError.message);
+
+  const userId = authData.user.id;
+
+  await serviceClient
+    .from("profiles")
+    .update({
+      full_name: trimmedName,
+      role: "responsible",
+      active: true,
+      username: normalizedUsername,
+    })
+    .eq("id", userId);
+
+  await assignCentersToResponsible(serviceClient, userId, centerIds);
 
   revalidatePath("/admin/responsibles");
+  return { username: normalizedUsername, password };
+}
+
+export async function resetResponsiblePassword(
+  responsibleId: string
+): Promise<ResponsibleCredentials> {
+  await requireRole("admin");
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY no configurada");
+  }
+
+  const serviceClient = createServiceClient();
+
+  const { data: profile, error: profileError } = await serviceClient
+    .from("profiles")
+    .select("username, role")
+    .eq("id", responsibleId)
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error("Responsable no encontrado");
+  }
+
+  if (profile.role !== "responsible") {
+    throw new Error("Solo se puede resetear la contraseña de responsables");
+  }
+
+  if (!profile.username) {
+    throw new Error("Este responsable no tiene usuario configurado");
+  }
+
+  const password = generateSecurePassword(12);
+
+  const { error: authError } = await serviceClient.auth.admin.updateUserById(
+    responsibleId,
+    { password }
+  );
+
+  if (authError) throw new Error(authError.message);
+
+  revalidatePath("/admin/responsibles");
+  return { username: profile.username, password };
 }
 
 export async function updateResponsibleAssignments(

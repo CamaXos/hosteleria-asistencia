@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { resolveLoginEmail } from "@/lib/auth/responsible-auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -12,7 +13,7 @@ import { ClipboardList, LogIn } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,7 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
+      const email = resolveLoginEmail(loginId);
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -65,21 +67,26 @@ export default function LoginPage() {
         <Card noPadding className="overflow-hidden shadow-md">
           <div className="bg-[var(--primary)] px-6 py-4">
             <h2 className="text-lg font-semibold text-white">Iniciar sesión</h2>
-            <p className="text-sm text-blue-100">Accede con tu cuenta corporativa</p>
+            <p className="text-sm text-blue-100">Accede con tu usuario o email corporativo</p>
           </div>
           <div className="p-6">
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && <Alert variant="error">{error}</Alert>}
 
-              <Input
-                label="Correo electrónico"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                placeholder="tu@email.com"
-              />
+              <div>
+                <Input
+                  label="Usuario o email"
+                  type="text"
+                  value={loginId}
+                  onChange={(e) => setLoginId(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="resp-la-plaza-01"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Responsables: use solo su usuario (ej. resp-la-plaza-01). Administradores: use su email completo.
+                </p>
+              </div>
 
               <Input
                 label="Contraseña"

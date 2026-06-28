@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  createResponsible,
+  createResponsibleWithUsername,
+  resetResponsiblePassword,
   updateResponsibleAssignments,
   toggleResponsibleActive,
 } from "@/lib/actions/employees";
 import { ScheduleEditor } from "@/components/admin/ScheduleEditor";
+import { CredentialsCard } from "@/components/admin/CredentialsCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -17,6 +19,7 @@ import { Alert } from "@/components/ui/Alert";
 import { getErrorMessage } from "@/lib/utils";
 import { MIN_RESPONSIBLES_PER_CENTER, MAX_RESPONSIBLES_PER_CENTER } from "@/lib/constants";
 import type { Center, Profile, ResponsibleSchedule } from "@/lib/types/database";
+import type { ResponsibleCredentials } from "@/lib/auth/responsible-auth";
 
 type ResponsibleWithCenters = Profile & { center_ids: string[] };
 
@@ -37,6 +40,9 @@ export function ResponsiblesManager({
   const [editing, setEditing] = useState<ResponsibleWithCenters | null>(null);
   const [scheduling, setScheduling] = useState<ResponsibleWithCenters | null>(null);
   const [selectedCenters, setSelectedCenters] = useState<string[]>([]);
+  const [credentials, setCredentials] = useState<
+    (ResponsibleCredentials & { fullName?: string }) | null
+  >(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +55,7 @@ export function ResponsiblesManager({
   function openCreate() {
     setEditing(null);
     setSelectedCenters([]);
+    setError("");
     setShowForm(true);
   }
 
@@ -62,13 +69,39 @@ export function ResponsiblesManager({
     e.preventDefault();
     setError("");
     setLoading(true);
-    const formData = new FormData(e.currentTarget);
-    selectedCenters.forEach((id) => formData.append("center_ids", id));
+
+    const form = e.currentTarget;
+    const fullName = (form.elements.namedItem("full_name") as HTMLInputElement).value;
+    const username = (form.elements.namedItem("username") as HTMLInputElement).value;
 
     try {
-      await createResponsible(formData);
+      const result = await createResponsibleWithUsername(
+        username,
+        fullName,
+        selectedCenters
+      );
       setShowForm(false);
-      window.location.reload();
+      setCredentials({ ...result, fullName: fullName.trim() });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResetPassword(resp: ResponsibleWithCenters) {
+    if (!resp.username) {
+      setError("Este responsable no tiene usuario configurado");
+      return;
+    }
+
+    if (!confirm(`¿Resetear la contraseña de ${resp.full_name}?`)) return;
+
+    setError("");
+    setLoading(true);
+    try {
+      const result = await resetResponsiblePassword(resp.id);
+      setCredentials({ ...result, fullName: resp.full_name });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -103,6 +136,11 @@ export function ResponsiblesManager({
     }
   }
 
+  function handleCredentialsClose() {
+    setCredentials(null);
+    window.location.reload();
+  }
+
   const centerNames = (ids: string[]) =>
     ids.map((id) => centers.find((c) => c.id === id)?.name).filter(Boolean).join(", ") || "—";
 
@@ -120,9 +158,10 @@ export function ResponsiblesManager({
 
       <Alert variant="info">
         Los centros con menos de {MIN_RESPONSIBLES_PER_CENTER} responsables aparecen marcados en naranja.
+        Cree cada responsable con un usuario único; el sistema generará la contraseña automáticamente.
       </Alert>
 
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && !showForm && <Alert variant="error">{error}</Alert>}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {centers.filter((c) => c.active).map((center) => {
@@ -147,6 +186,7 @@ export function ResponsiblesManager({
             <thead>
               <tr className="border-b text-left text-gray-500">
                 <th className="pb-2 pr-4">Nombre</th>
+                <th className="pb-2 pr-4">Usuario</th>
                 <th className="pb-2 pr-4">Centros asignados</th>
                 <th className="pb-2 pr-4">Estado</th>
                 <th className="pb-2">Acciones</th>
@@ -156,6 +196,9 @@ export function ResponsiblesManager({
               {responsibles.map((resp) => (
                 <tr key={resp.id} className="border-b border-gray-50">
                   <td className="py-3 pr-4 font-medium">{resp.full_name}</td>
+                  <td className="py-3 pr-4 font-mono text-gray-600">
+                    {resp.username || "—"}
+                  </td>
                   <td className="py-3 pr-4 text-gray-600">{centerNames(resp.center_ids)}</td>
                   <td className="py-3 pr-4">
                     <Badge variant={resp.active ? "success" : "danger"}>
@@ -172,6 +215,16 @@ export function ResponsiblesManager({
                     <Button variant="ghost" size="sm" onClick={() => setScheduling(resp)}>
                       Horario
                     </Button>
+                    {resp.username && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleResetPassword(resp)}
+                        disabled={loading}
+                      >
+                        Resetear contraseña
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -196,8 +249,20 @@ export function ResponsiblesManager({
         <form onSubmit={handleCreate} className="space-y-4">
           {error && <Alert variant="error">{error}</Alert>}
           <Input name="full_name" label="Nombre completo" required />
-          <Input name="email" label="Email" type="email" required />
-          <Input name="password" label="Contraseña" type="password" required minLength={6} />
+          <div>
+            <Input
+              name="username"
+              label="Usuario"
+              required
+              pattern="[a-z0-9]+(-[a-z0-9]+)*"
+              title="Solo letras minúsculas, números y guiones"
+              placeholder="resp-la-plaza-01"
+              autoComplete="off"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Identificador único para iniciar sesión (sin email real). Ejemplo: resp-la-plaza-01
+            </p>
+          </div>
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Centros asignados</p>
             <div className="space-y-2">
@@ -261,6 +326,16 @@ export function ResponsiblesManager({
           centers={centers}
           centerIds={scheduling.center_ids}
           existingSchedules={allSchedules.filter((s) => s.responsible_id === scheduling.id)}
+        />
+      )}
+
+      {credentials && (
+        <CredentialsCard
+          open={!!credentials}
+          username={credentials.username}
+          password={credentials.password}
+          fullName={credentials.fullName}
+          onClose={handleCredentialsClose}
         />
       )}
     </div>

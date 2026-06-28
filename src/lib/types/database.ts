@@ -20,6 +20,7 @@ export type EmployeeAction =
 export interface Profile {
   id: string;
   full_name: string;
+  username: string | null;
   role: UserRole;
   active: boolean;
   created_at: string;

@@ -43,6 +43,8 @@ export const ALL_ATTENDANCE_STATUSES: AttendanceStatus[] = [
 export const MIN_RESPONSIBLES_PER_CENTER = 2;
 export const MAX_RESPONSIBLES_PER_CENTER = 4;
 
+export const INTERNAL_EMAIL_DOMAIN = "@hosteleria.local";
+
 export const ROLE_LABELS = {
   admin: "Administrador",
   responsible: "Responsable",

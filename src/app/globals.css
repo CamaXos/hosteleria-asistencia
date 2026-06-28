@@ -46,3 +46,28 @@ body {
     min-width: 44px;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #credentials-print-area,
+  #credentials-print-area * {
+    visibility: visible;
+  }
+
+  #credentials-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 2rem;
+    background: white;
+  }
+
+  .credentials-card .rounded-lg {
+    border: 2px solid #000 !important;
+    background: white !important;
+  }
+}
