@@ -23,9 +23,18 @@ import type { AttendanceStatus, Center, Employee, MonthlyAttendanceRow } from "@
 interface MonthlyGridProps {
   centers: Center[];
   employees: Employee[];
+  title?: string;
+  description?: string;
+  sectionId?: string;
 }
 
-export function MonthlyGrid({ centers, employees }: MonthlyGridProps) {
+export function MonthlyGrid({
+  centers,
+  employees,
+  title = "Cuadrícula mensual",
+  description = "Vista de asistencia por empleado y día",
+  sectionId,
+}: MonthlyGridProps) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -81,12 +90,14 @@ export function MonthlyGrid({ centers, employees }: MonthlyGridProps) {
     downloadExcel(buffer, `asistencia_${centerName}_${month}_${year}.xlsx`);
   }
 
+  const HeadingTag = sectionId ? "h2" : "h1";
+
   return (
-    <div className="space-y-6">
+    <section id={sectionId} className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cuadrícula mensual</h1>
-          <p className="text-sm text-gray-500">Vista de asistencia por empleado y día</p>
+          <HeadingTag className="text-2xl font-bold text-gray-900">{title}</HeadingTag>
+          <p className="text-sm text-gray-500">{description}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExportCSV} disabled={rows.length === 0}>
@@ -199,6 +210,6 @@ export function MonthlyGrid({ centers, employees }: MonthlyGridProps) {
           ))}
         </div>
       </Card>
-    </div>
+    </section>
   );
 }
