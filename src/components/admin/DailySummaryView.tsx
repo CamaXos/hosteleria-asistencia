@@ -19,6 +19,7 @@ import {
   Clock,
   Building2,
   FileCheck,
+  UserCog,
 } from "lucide-react";
 
 interface DailySummaryViewProps {
@@ -59,7 +60,7 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
       />
 
       {/* KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
         <KpiCard label="Empleados activos" value={data.kpis.activeEmployees} icon={<Users className="h-5 w-5" />} />
         <KpiCard label="Asistieron" value={data.kpis.workedToday} variant="success" icon={<CheckCircle2 className="h-5 w-5" />} />
         <KpiCard label="Faltas" value={data.kpis.absences} variant="danger" icon={<UserX className="h-5 w-5" />} />
@@ -68,7 +69,59 @@ export function DailySummaryView({ data, selectedDate, reportDays }: DailySummar
         <KpiCard label="Libre" value={data.kpis.dayOff} icon={<CalendarOff className="h-5 w-5" />} />
         <KpiCard label="Baja" value={data.kpis.inactive} icon={<UserX className="h-5 w-5" />} />
         <KpiCard label="Centros pendientes" value={data.kpis.pendingCenters} variant="warning" icon={<AlertTriangle className="h-5 w-5" />} />
+        <KpiCard label="Responsables pendientes" value={data.kpis.pendingResponsibles} variant="danger" icon={<UserCog className="h-5 w-5" />} />
       </div>
+
+      {/* Pending responsibles alert */}
+      {data.pendingResponsibles.length > 0 ? (
+        <Card
+          title="Responsables que debían cerrar parte y no lo hicieron"
+          description="Centros sin informe en jornada laborable del responsable"
+          className="border-red-200 bg-red-50/40"
+        >
+          <div className="space-y-3">
+            {data.pendingResponsibles.map((r) => (
+              <div
+                key={r.responsibleId}
+                className="rounded-xl border border-red-200 bg-white px-4 py-3 shadow-sm"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">
+                      {r.fullName}
+                      {r.username && (
+                        <span className="ml-2 text-sm font-normal text-slate-500">@{r.username}</span>
+                      )}
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {r.pendingCenters.map((c) => (
+                        <div key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                            <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                            {c.name}
+                          </span>
+                          {c.schedule && (
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                              <Clock className="h-3 w-3" />
+                              {c.schedule.startTime} – {c.schedule.endTime}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Badge variant="danger" className="shrink-0">Parte pendiente</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : data.centers.length > 0 && data.pendingCenters.length === 0 ? (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+          <span className="font-medium text-emerald-800">Todos los centros han enviado parte</span>
+        </div>
+      ) : null}
 
       {/* Pending centers alert */}
       {data.pendingCenters.length > 0 && (

@@ -1,5 +1,6 @@
 import type { ResponsibleSchedule } from "@/lib/types/database";
 import type { ResponsibleSubmissionEntry } from "@/lib/actions/responsible-stats";
+import { getIsoWeekdayMadrid } from "@/lib/utils";
 
 export type SubmissionDayStatus =
   | "submitted"
@@ -17,8 +18,8 @@ export interface SubmissionCalendarDay {
 }
 
 function getIsoWeekday(year: number, month: number, day: number): number {
-  const jsDay = new Date(year, month - 1, day).getDay();
-  return jsDay === 0 ? 7 : jsDay;
+  const dateISO = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return getIsoWeekdayMadrid(dateISO);
 }
 
 /** Lunes = 0 … Domingo = 6 */
@@ -32,8 +33,7 @@ export function isWorkingDayForCenter(
   centerId: string,
   schedules: ResponsibleSchedule[]
 ): boolean {
-  const [y, m, d] = date.split("-").map(Number);
-  const isoWeekday = getIsoWeekday(y, m, d);
+  const isoWeekday = getIsoWeekdayMadrid(date);
   const centerSchedules = schedules.filter((s) => s.center_id === centerId);
 
   if (centerSchedules.length === 0) {

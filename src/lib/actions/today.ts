@@ -1,8 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { AttendanceStatus, Center } from "@/lib/types/database";
-import { getMonthDays } from "@/lib/utils";
+import type { AttendanceStatus, Center, Profile, ResponsibleSchedule } from "@/lib/types/database";
+import { getMonthDays, getIsoWeekdayMadrid } from "@/lib/utils";
+import { isWorkingDayForCenter } from "@/lib/utils/responsible-calendar";
 
 export interface CenterTodayStatus {
   center: Center;
@@ -26,6 +27,19 @@ export interface TodaySubmission {
   submittedAt: string;
 }
 
+export interface PendingResponsibleCenter {
+  id: string;
+  name: string;
+  schedule: { startTime: string; endTime: string } | null;
+}
+
+export interface PendingResponsible {
+  responsibleId: string;
+  fullName: string;
+  username: string | null;
+  pendingCenters: PendingResponsibleCenter[];
+}
+
 export interface TodayOverview {
   dateISO: string;
   kpis: {
@@ -38,12 +52,14 @@ export interface TodayOverview {
     inactive: number;
     other: number;
     pendingCenters: number;
+    pendingResponsibles: number;
   };
   centers: CenterTodayStatus[];
   attended: EmployeeTodayEntry[];
   notAttended: EmployeeTodayEntry[];
   submissions: TodaySubmission[];
   pendingCenters: { id: string; name: string }[];
+  pendingResponsibles: PendingResponsible[];
 }
 
 function getRelationName(rel: unknown): string {
@@ -62,6 +78,97 @@ function getProfileName(rel: unknown): string {
   if (!rel) return "—";
   if (Array.isArray(rel)) return (rel[0] as { full_name?: string } | undefined)?.full_name || "—";
   return (rel as { full_name?: string }).full_name || "—";
+}
+
+function getSingleProfile(rel: unknown): Pick<Profile, "id" | "full_name" | "username" | "active" | "role"> | null {
+  if (!rel) return null;
+  const p = Array.isArray(rel) ? rel[0] : rel;
+  if (!p || typeof p !== "object") return null;
+  const profile = p as Pick<Profile, "id" | "full_name" | "username" | "active" | "role">;
+  return profile.id ? profile : null;
+}
+
+function getSingleCenter(rel: unknown): Pick<Center, "id" | "name" | "active"> | null {
+  if (!rel) return null;
+  const c = Array.isArray(rel) ? rel[0] : rel;
+  if (!c || typeof c !== "object") return null;
+  const center = c as Pick<Center, "id" | "name" | "active">;
+  return center.id ? center : null;
+}
+
+async function getPendingResponsibles(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  dateISO: string,
+  pendingCenterIds: Set<string>
+): Promise<PendingResponsible[]> {
+  if (pendingCenterIds.size === 0) return [];
+
+  const [{ data: assignments }, { data: allSchedules }] = await Promise.all([
+    supabase
+      .from("responsible_centers")
+      .select(`
+        responsible_id,
+        center_id,
+        profile:profiles!responsible_centers_responsible_id_fkey(id, full_name, username, active, role),
+        center:centers!inner(id, name, active)
+      `),
+    supabase.from("responsible_schedules").select("*"),
+  ]);
+
+  const schedulesByResponsible = new Map<string, ResponsibleSchedule[]>();
+  for (const row of allSchedules || []) {
+    const schedule = row as ResponsibleSchedule;
+    const list = schedulesByResponsible.get(schedule.responsible_id) ?? [];
+    list.push(schedule);
+    schedulesByResponsible.set(schedule.responsible_id, list);
+  }
+
+  const isoWeekday = getIsoWeekdayMadrid(dateISO);
+  const byResponsible = new Map<string, PendingResponsible>();
+
+  for (const row of assignments || []) {
+    const profile = getSingleProfile(row.profile);
+    const center = getSingleCenter(row.center);
+    if (!profile || !center) continue;
+    if (!profile.active || profile.role !== "responsible") continue;
+    if (!center.active || !pendingCenterIds.has(center.id)) continue;
+
+    const respSchedules = schedulesByResponsible.get(profile.id) ?? [];
+    if (!isWorkingDayForCenter(dateISO, center.id, respSchedules)) continue;
+
+    const scheduleRow = respSchedules.find(
+      (s) => s.center_id === center.id && s.day_of_week === isoWeekday
+    );
+
+    let entry = byResponsible.get(profile.id);
+    if (!entry) {
+      entry = {
+        responsibleId: profile.id,
+        fullName: profile.full_name,
+        username: profile.username,
+        pendingCenters: [],
+      };
+      byResponsible.set(profile.id, entry);
+    }
+
+    entry.pendingCenters.push({
+      id: center.id,
+      name: center.name,
+      schedule: scheduleRow
+        ? {
+            startTime: scheduleRow.start_time.slice(0, 5),
+            endTime: scheduleRow.end_time.slice(0, 5),
+          }
+        : null,
+    });
+  }
+
+  return Array.from(byResponsible.values())
+    .map((entry) => ({
+      ...entry,
+      pendingCenters: entry.pendingCenters.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 
 export async function getDailyOverview(dateISO: string): Promise<TodayOverview> {
@@ -105,6 +212,9 @@ export async function getDailyOverview(dateISO: string): Promise<TodayOverview> 
     .filter((c) => !reportedIds.has(c.id))
     .map((c) => ({ id: c.id, name: c.name }));
 
+  const pendingCenterIds = new Set(pendingCenters.map((c) => c.id));
+  const pendingResponsibles = await getPendingResponsibles(supabase, today, pendingCenterIds);
+
   const submissions: TodaySubmission[] = (todayReports || []).map((r) => ({
     submitterName: getProfileName(r.submitter),
     centerName: getRelationName(r.center),
@@ -121,6 +231,7 @@ export async function getDailyOverview(dateISO: string): Promise<TodayOverview> 
     inactive: 0,
     other: 0,
     pendingCenters: pendingCenters.length,
+    pendingResponsibles: pendingResponsibles.length,
   };
 
   const attended: EmployeeTodayEntry[] = [];
@@ -176,6 +287,7 @@ export async function getDailyOverview(dateISO: string): Promise<TodayOverview> 
     notAttended,
     submissions,
     pendingCenters,
+    pendingResponsibles,
   };
 }
 

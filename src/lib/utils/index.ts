@@ -22,6 +22,25 @@ export function getTodayISO(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: MADRID_TZ }).format(new Date());
 }
 
+const ISO_WEEKDAY_MAP: Record<string, number> = {
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+  Sun: 7,
+};
+
+/** Día ISO (1=Lunes … 7=Domingo) para una fecha calendario en Europe/Madrid */
+export function getIsoWeekdayMadrid(dateISO: string): number {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: MADRID_TZ,
+    weekday: "short",
+  }).format(new Date(`${dateISO}T12:00:00.000Z`));
+  return ISO_WEEKDAY_MAP[weekday] ?? 1;
+}
+
 export function parseDateParam(value: string | undefined): string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return getTodayISO();
   const d = parseISO(value);
