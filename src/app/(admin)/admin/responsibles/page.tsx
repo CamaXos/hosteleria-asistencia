@@ -1,11 +1,12 @@
-import { getResponsibles, validateCenterResponsibles } from "@/lib/actions/employees";
+import { getActiveResponsibles, getInactiveResponsibles, validateCenterResponsibles } from "@/lib/actions/employees";
 import { getCenters } from "@/lib/actions/centers";
 import { getAllSchedules } from "@/lib/actions/responsible-stats";
 import { ResponsiblesManager } from "@/components/admin/ResponsiblesManager";
 
 export default async function ResponsiblesPage() {
-  const [responsibles, centers, allSchedules] = await Promise.all([
-    getResponsibles(),
+  const [activeResponsibles, inactiveResponsibles, centers, allSchedules] = await Promise.all([
+    getActiveResponsibles(),
+    getInactiveResponsibles(),
     getCenters(),
     getAllSchedules(),
   ]);
@@ -18,7 +19,8 @@ export default async function ResponsiblesPage() {
 
   return (
     <ResponsiblesManager
-      responsibles={responsibles}
+      activeResponsibles={activeResponsibles}
+      inactiveResponsibles={inactiveResponsibles}
       centers={centers}
       centerResponsibleCounts={counts}
       allSchedules={allSchedules}

@@ -24,6 +24,7 @@ export interface Profile {
   role: UserRole;
   active: boolean;
   created_at: string;
+  deactivated_at: string | null;
 }
 
 export interface Center {

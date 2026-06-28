@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { resolveLoginEmail } from "@/lib/auth/responsible-auth";
 import { Button } from "@/components/ui/Button";
@@ -11,12 +11,22 @@ import { Alert } from "@/components/ui/Alert";
 import { getErrorMessage } from "@/lib/utils";
 import { ClipboardList, LogIn } from "lucide-react";
 
-export default function LoginPage() {
+const DEACTIVATED_MESSAGE =
+  "Su cuenta está desactivada. Contacte con administración.";
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("deactivated") === "1") {
+      setError(DEACTIVATED_MESSAGE);
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +51,7 @@ export default function LoginPage() {
 
       if (!profile?.active) {
         await supabase.auth.signOut();
-        throw new Error("Tu cuenta está desactivada. Contacta con el administrador.");
+        throw new Error(DEACTIVATED_MESSAGE);
       }
 
       router.push(profile.role === "admin" ? "/admin" : "/responsible");
@@ -111,5 +121,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

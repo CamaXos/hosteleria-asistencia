@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   createResponsibleWithUsername,
   resetResponsiblePassword,
   updateResponsibleAssignments,
-  toggleResponsibleActive,
+  deactivateResponsible,
+  reactivateResponsible,
 } from "@/lib/actions/employees";
 import { ScheduleEditor } from "@/components/admin/ScheduleEditor";
 import { CredentialsCard } from "@/components/admin/CredentialsCard";
@@ -16,7 +18,7 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { Alert } from "@/components/ui/Alert";
-import { getErrorMessage } from "@/lib/utils";
+import { getErrorMessage, formatDate } from "@/lib/utils";
 import { MIN_RESPONSIBLES_PER_CENTER, MAX_RESPONSIBLES_PER_CENTER } from "@/lib/constants";
 import type { Center, Profile, ResponsibleSchedule } from "@/lib/types/database";
 import type { ResponsibleCredentials } from "@/lib/auth/responsible-auth";
@@ -24,14 +26,16 @@ import type { ResponsibleCredentials } from "@/lib/auth/responsible-auth";
 type ResponsibleWithCenters = Profile & { center_ids: string[] };
 
 interface ResponsiblesManagerProps {
-  responsibles: ResponsibleWithCenters[];
+  activeResponsibles: ResponsibleWithCenters[];
+  inactiveResponsibles: ResponsibleWithCenters[];
   centers: Center[];
   centerResponsibleCounts: Record<string, number>;
   allSchedules: ResponsibleSchedule[];
 }
 
 export function ResponsiblesManager({
-  responsibles,
+  activeResponsibles,
+  inactiveResponsibles,
   centers,
   centerResponsibleCounts,
   allSchedules,
@@ -39,12 +43,21 @@ export function ResponsiblesManager({
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ResponsibleWithCenters | null>(null);
   const [scheduling, setScheduling] = useState<ResponsibleWithCenters | null>(null);
+  const [deactivating, setDeactivating] = useState<ResponsibleWithCenters | null>(null);
+  const [reactivating, setReactivating] = useState<ResponsibleWithCenters | null>(null);
+  const [inactiveOpen, setInactiveOpen] = useState(inactiveResponsibles.length > 0);
   const [selectedCenters, setSelectedCenters] = useState<string[]>([]);
   const [credentials, setCredentials] = useState<
     (ResponsibleCredentials & { fullName?: string }) | null
   >(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (inactiveResponsibles.length > 0) {
+      setInactiveOpen(true);
+    }
+  }, [inactiveResponsibles.length]);
 
   function openEdit(resp: ResponsibleWithCenters) {
     setEditing(resp);
@@ -124,10 +137,26 @@ export function ResponsiblesManager({
     }
   }
 
-  async function handleToggleActive(id: string, active: boolean) {
+  async function handleDeactivate() {
+    if (!deactivating) return;
     setLoading(true);
     try {
-      await toggleResponsibleActive(id, !active);
+      await deactivateResponsible(deactivating.id);
+      setDeactivating(null);
+      window.location.reload();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReactivate() {
+    if (!reactivating) return;
+    setLoading(true);
+    try {
+      await reactivateResponsible(reactivating.id);
+      setReactivating(null);
       window.location.reload();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -148,9 +177,9 @@ export function ResponsiblesManager({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Responsables</h1>
-          <p className="text-sm text-gray-500">
-            Cada centro debe tener entre {MIN_RESPONSIBLES_PER_CENTER} y {MAX_RESPONSIBLES_PER_CENTER} responsables
+          <h1 className="text-2xl font-bold text-slate-900">Responsables</h1>
+          <p className="text-sm text-slate-500">
+            Cada centro debe tener entre {MIN_RESPONSIBLES_PER_CENTER} y {MAX_RESPONSIBLES_PER_CENTER} responsables activos
           </p>
         </div>
         <Button onClick={openCreate}>Nuevo responsable</Button>
@@ -170,7 +199,7 @@ export function ResponsiblesManager({
           return (
             <Card key={center.id} className="!p-4">
               <div className="flex items-center justify-between">
-                <span className="font-medium">{center.name}</span>
+                <span className="font-medium text-slate-900">{center.name}</span>
                 <Badge variant={valid ? "success" : "warning"}>
                   {count} responsable{count !== 1 ? "s" : ""}
                 </Badge>
@@ -180,65 +209,141 @@ export function ResponsiblesManager({
         })}
       </div>
 
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-gray-500">
-                <th className="pb-2 pr-4">Nombre</th>
-                <th className="pb-2 pr-4">Usuario</th>
-                <th className="pb-2 pr-4">Centros asignados</th>
-                <th className="pb-2 pr-4">Estado</th>
-                <th className="pb-2">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {responsibles.map((resp) => (
-                <tr key={resp.id} className="border-b border-gray-50">
-                  <td className="py-3 pr-4 font-medium">{resp.full_name}</td>
-                  <td className="py-3 pr-4 font-mono text-gray-600">
-                    {resp.username || "—"}
-                  </td>
-                  <td className="py-3 pr-4 text-gray-600">{centerNames(resp.center_ids)}</td>
-                  <td className="py-3 pr-4">
-                    <Badge variant={resp.active ? "success" : "danger"}>
-                      {resp.active ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </td>
-                  <td className="py-3 flex gap-2 flex-wrap">
-                    <Link href={`/admin/responsibles/${resp.id}/history`}>
-                      <Button variant="ghost" size="sm">Ver historial</Button>
-                    </Link>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(resp)}>
-                      Asignar centros
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setScheduling(resp)}>
-                      Horario
-                    </Button>
-                    {resp.username && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleResetPassword(resp)}
-                        disabled={loading}
-                      >
-                        Resetear contraseña
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggleActive(resp.id, resp.active)}
-                    >
-                      {resp.active ? "Desactivar" : "Activar"}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <section className="space-y-3">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-[var(--primary)]">Responsables activos</h2>
+          <Badge variant="success">{activeResponsibles.length}</Badge>
         </div>
-      </Card>
+
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-slate-500">
+                  <th className="pb-2 pr-4">Nombre</th>
+                  <th className="pb-2 pr-4">Usuario</th>
+                  <th className="pb-2 pr-4">Centros asignados</th>
+                  <th className="pb-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeResponsibles.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-400">
+                      No hay responsables activos
+                    </td>
+                  </tr>
+                ) : (
+                  activeResponsibles.map((resp) => (
+                    <tr key={resp.id} className="border-b border-slate-50">
+                      <td className="py-3 pr-4 font-medium text-slate-900">{resp.full_name}</td>
+                      <td className="py-3 pr-4 font-mono text-slate-600">
+                        {resp.username || "—"}
+                      </td>
+                      <td className="py-3 pr-4 text-slate-600">{centerNames(resp.center_ids)}</td>
+                      <td className="py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Link href={`/admin/responsibles/${resp.id}/history`}>
+                            <Button variant="ghost" size="sm">Ver historial</Button>
+                          </Link>
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(resp)}>
+                            Asignar centros
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setScheduling(resp)}>
+                            Horario
+                          </Button>
+                          {resp.username && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResetPassword(resp)}
+                              disabled={loading}
+                            >
+                              Resetear contraseña
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={() => setDeactivating(resp)}
+                          >
+                            Desactivar
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </section>
+
+      <section className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setInactiveOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-left sm:pointer-events-none sm:cursor-default sm:border-0 sm:bg-transparent sm:px-0 sm:py-0"
+        >
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-slate-500">Desactivados</h2>
+            <Badge variant="default">Desactivados ({inactiveResponsibles.length})</Badge>
+          </div>
+          <span className="text-slate-400 sm:hidden">
+            {inactiveOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </span>
+        </button>
+
+        {inactiveOpen && (
+          <Card className="border-slate-200 bg-slate-50/80">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-slate-400">
+                    <th className="pb-2 pr-4">Nombre</th>
+                    <th className="pb-2 pr-4">Usuario</th>
+                    <th className="pb-2 pr-4">Centros asignados</th>
+                    <th className="pb-2 pr-4">Fecha de baja</th>
+                    <th className="pb-2">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inactiveResponsibles.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-400">
+                        No hay responsables desactivados
+                      </td>
+                    </tr>
+                  ) : (
+                    inactiveResponsibles.map((resp) => (
+                      <tr key={resp.id} className="border-b border-slate-100 text-slate-500">
+                        <td className="py-3 pr-4 font-medium">{resp.full_name}</td>
+                        <td className="py-3 pr-4 font-mono">{resp.username || "—"}</td>
+                        <td className="py-3 pr-4 text-slate-400">{centerNames(resp.center_ids)}</td>
+                        <td className="py-3 pr-4 text-slate-400">
+                          {resp.deactivated_at ? formatDate(resp.deactivated_at) : "—"}
+                        </td>
+                        <td className="py-3">
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            onClick={() => setReactivating(resp)}
+                            disabled={loading}
+                          >
+                            Reactivar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+      </section>
 
       <Modal
         open={showForm && !editing}
@@ -315,6 +420,35 @@ export function ResponsiblesManager({
             </label>
           ))}
         </div>
+      </Modal>
+
+      <Modal
+        open={!!deactivating}
+        onClose={() => setDeactivating(null)}
+        title="Desactivar responsable"
+        onConfirm={handleDeactivate}
+        confirmLabel="Desactivar"
+        variant="danger"
+        loading={loading}
+      >
+        <p className="text-sm text-slate-600">
+          ¿Desactivar a <strong>{deactivating?.full_name}</strong>? Dejará de poder iniciar sesión
+          y pasará a la sección de desactivados. Sus centros asignados se conservan para una posible reactivación.
+        </p>
+      </Modal>
+
+      <Modal
+        open={!!reactivating}
+        onClose={() => setReactivating(null)}
+        title="Reactivar responsable"
+        onConfirm={handleReactivate}
+        confirmLabel="Reactivar"
+        loading={loading}
+      >
+        <p className="text-sm text-slate-600">
+          ¿Reactivar a <strong>{reactivating?.full_name}</strong>? Volverá a poder iniciar sesión
+          con su usuario y contraseña actuales.
+        </p>
       </Modal>
 
       {scheduling && (

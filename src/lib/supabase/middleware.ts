@@ -41,13 +41,23 @@ export async function updateSession(request: NextRequest) {
   if (user && pathname === "/login") {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, active")
       .eq("id", user.id)
       .single();
 
+    if (!profile?.active) {
+      await supabase.auth.signOut();
+      if (request.nextUrl.searchParams.get("deactivated") !== "1") {
+        const url = request.nextUrl.clone();
+        url.searchParams.set("deactivated", "1");
+        return NextResponse.redirect(url);
+      }
+      return supabaseResponse;
+    }
+
     const url = request.nextUrl.clone();
     url.pathname =
-      profile?.role === "admin" ? "/admin" : "/responsible";
+      profile.role === "admin" ? "/admin" : "/responsible";
     return NextResponse.redirect(url);
   }
 
@@ -73,8 +83,10 @@ export async function updateSession(request: NextRequest) {
       .single();
 
     if (!profile?.active) {
+      await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = "/login";
+      url.searchParams.set("deactivated", "1");
       return NextResponse.redirect(url);
     }
 

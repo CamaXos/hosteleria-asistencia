@@ -156,13 +156,18 @@ export async function updateEmployee(id: string, formData: FormData) {
   revalidatePath("/admin/employees");
 }
 
-export async function getResponsibles(): Promise<(Profile & { center_ids: string[] })[]> {
+type ResponsibleWithCenters = Profile & { center_ids: string[] };
+
+async function fetchResponsiblesWithCenters(
+  active: boolean
+): Promise<ResponsibleWithCenters[]> {
   const supabase = await createClient();
 
   const { data: profiles } = await supabase
     .from("profiles")
     .select("*")
     .eq("role", "responsible")
+    .eq("active", active)
     .order("full_name");
 
   if (!profiles) return [];
@@ -178,6 +183,19 @@ export async function getResponsibles(): Promise<(Profile & { center_ids: string
         ?.filter((a) => a.responsible_id === p.id)
         .map((a) => a.center_id) || [],
   }));
+}
+
+export async function getActiveResponsibles(): Promise<ResponsibleWithCenters[]> {
+  return fetchResponsiblesWithCenters(true);
+}
+
+export async function getInactiveResponsibles(): Promise<ResponsibleWithCenters[]> {
+  return fetchResponsiblesWithCenters(false);
+}
+
+/** @deprecated Use getActiveResponsibles or getInactiveResponsibles */
+export async function getResponsibles(): Promise<ResponsibleWithCenters[]> {
+  return getActiveResponsibles();
 }
 
 async function assignCentersToResponsible(
@@ -352,12 +370,30 @@ export async function updateResponsibleAssignments(
   revalidatePath("/admin/responsibles");
 }
 
-export async function toggleResponsibleActive(id: string, active: boolean) {
+export async function deactivateResponsible(id: string) {
+  await requireRole("admin");
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("profiles")
-    .update({ active })
-    .eq("id", id);
+    .update({ active: false, deactivated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("role", "responsible");
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/responsibles");
+}
+
+export async function reactivateResponsible(id: string) {
+  await requireRole("admin");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ active: true, deactivated_at: null })
+    .eq("id", id)
+    .eq("role", "responsible");
+
   if (error) throw new Error(error.message);
   revalidatePath("/admin/responsibles");
 }

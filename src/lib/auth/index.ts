@@ -35,7 +35,7 @@ export async function requireAuth() {
 
 export async function requireRole(role: UserRole) {
   const profile = await getProfile();
-  if (!profile || !profile.active) redirect("/login");
+  if (!profile || !profile.active) redirect("/login?deactivated=1");
   if (profile.role !== role) {
     redirect(role === "admin" ? "/responsible" : "/admin");
   }
