@@ -39,7 +39,7 @@ export function DailySummaryView({
     ? data.activeCenters.find((c) => c.id === selectedCenter)?.name
     : null;
 
-  const pendienteHref = `/admin/pendiente?date=${selectedDate}`;
+  const pendienteHref = `/admin/resumen-diario?view=pendiente&date=${selectedDate}`;
 
   return (
     <div className="space-y-6">

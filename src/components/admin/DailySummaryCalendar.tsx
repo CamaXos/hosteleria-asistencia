@@ -33,6 +33,7 @@ interface DailySummaryCalendarProps {
   selectedCenter: string | null;
   initialReportDays: MonthReportDay[];
   basePath?: string;
+  view?: string;
 }
 
 function parseYearMonth(dateISO: string): { year: number; month: number } {
@@ -45,6 +46,7 @@ export function DailySummaryCalendar({
   selectedCenter,
   initialReportDays,
   basePath = "/admin/resumen-diario",
+  view,
 }: DailySummaryCalendarProps) {
   const router = useRouter();
   const today = getTodayISO();
@@ -56,6 +58,9 @@ export function DailySummaryCalendar({
 
   function buildUrl(date: string) {
     const params = new URLSearchParams({ date });
+    if (view) {
+      params.set("view", view);
+    }
     if (selectedCenter) {
       params.set("center", selectedCenter);
     }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Building2,
@@ -21,7 +21,7 @@ import { LogoutButton } from "@/components/shared/LogoutButton";
 const navItems = [
   { href: "/admin", label: "Panel", icon: LayoutDashboard },
   { href: "/admin/resumen-diario", label: "Resumen diario", icon: CalendarCheck, primary: true },
-  { href: "/admin/pendiente", label: "Pendiente", icon: AlertTriangle },
+  { href: "/admin/resumen-diario?view=pendiente", label: "Pendiente", icon: AlertTriangle },
   { href: "/admin/analytics", label: "Analíticas", icon: BarChart3 },
   { href: "/admin/centers", label: "Centros", icon: Building2 },
   { href: "/admin/employees", label: "Empleados", icon: Users },
@@ -35,11 +35,16 @@ interface AdminShellProps {
 
 export function AdminShell({ userName, children }: AdminShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   function isActive(href: string) {
     if (href === "/admin") return pathname === "/admin";
-    return pathname.startsWith(href);
+    if (href.includes("view=pendiente")) {
+      return pathname === "/admin/resumen-diario" && searchParams.get("view") === "pendiente";
+    }
+    const baseHref = href.split("?")[0];
+    return pathname.startsWith(baseHref);
   }
 
   const navContent = (

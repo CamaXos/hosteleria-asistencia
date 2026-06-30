@@ -32,7 +32,8 @@ export function PendienteView({ data, selectedDate, reportDays }: PendienteViewP
         selectedDate={selectedDate}
         selectedCenter={null}
         initialReportDays={reportDays}
-        basePath="/admin/pendiente"
+        basePath="/admin/resumen-diario"
+        view="pendiente"
       />
 
       <KpiCard

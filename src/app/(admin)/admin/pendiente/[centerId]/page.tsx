@@ -34,8 +34,8 @@ export default async function AdminPendienteReportPage({ params, searchParams }:
       initialEmployees={employees}
       alreadySubmitted={!!existingReport}
       reportDate={reportDate}
-      backHref={`/admin/pendiente?date=${reportDate}`}
-      successHref={`/admin/pendiente?date=${reportDate}`}
+      backHref={`/admin/resumen-diario?view=pendiente&date=${reportDate}`}
+      successHref={`/admin/resumen-diario?view=pendiente&date=${reportDate}`}
       showEmployeeManagement={false}
       submitReport={async (centerId, entries, notes, date) =>
         adminSubmitAttendanceReport(centerId, date || reportDate, entries, notes)
