@@ -90,13 +90,29 @@ export function mapAttendanceSubmitError(message: string): string {
   if (message.includes("Solo los responsables")) {
     return "Solo los responsables pueden enviar informes de asistencia.";
   }
+  if (message.includes("Solo los administradores")) {
+    return "Solo los administradores pueden completar partes desde Pendiente.";
+  }
   if (message.includes("No tienes acceso")) {
     return "No tienes acceso a este centro.";
   }
-  if (message.includes("Empleado no pertenece")) {
+  if (message.includes("Empleado no pertenece") || message.includes("Empleado no válido")) {
     return "Uno de los empleados seleccionados no pertenece a este centro.";
   }
   return message;
+}
+
+export function mapSupabaseQueryError(message: string, code?: string): string {
+  if (code === "PGRST301" || message.includes("JWT")) {
+    return "Tu sesión ha expirado. Vuelve a iniciar sesión.";
+  }
+  if (message.includes("permission denied") || code === "42501") {
+    return "No tienes permiso para ver estos datos. Contacta con el administrador.";
+  }
+  if (message.includes("Could not find") || message.includes("does not exist")) {
+    return "Error de configuración de la base de datos. Contacta con el administrador.";
+  }
+  return "No se pudieron cargar los datos. Inténtalo de nuevo en unos segundos.";
 }
 
 export function emptyTotals(): Record<import("@/lib/types/database").AttendanceStatus, number> {

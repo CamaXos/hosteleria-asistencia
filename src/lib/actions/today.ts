@@ -2,7 +2,24 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { AttendanceStatus, Center } from "@/lib/types/database";
-import { getMonthDays } from "@/lib/utils";
+import { getMonthDays, mapSupabaseQueryError } from "@/lib/utils";
+import type { PostgrestError } from "@supabase/supabase-js";
+
+function assertSupabaseOk<T>(label: string, result: { data: T; error: PostgrestError | null }): T {
+  if (result.error) {
+    console.error(`[today] ${label}:`, result.error.message, result.error.code, result.error.details);
+    throw new Error(mapSupabaseQueryError(result.error.message, result.error.code));
+  }
+  return result.data;
+}
+
+function assertSupabaseCount(label: string, result: { count: number | null; error: PostgrestError | null }): number {
+  if (result.error) {
+    console.error(`[today] ${label}:`, result.error.message, result.error.code, result.error.details);
+    throw new Error(mapSupabaseQueryError(result.error.message, result.error.code));
+  }
+  return result.count ?? 0;
+}
 
 export interface CenterTodayStatus {
   center: Center;
@@ -102,16 +119,21 @@ export async function getDailyOverview(
   }
 
   const [
-    { count: activeEmployees },
-    { data: allActiveCenters },
-    { data: todayReports },
-    { data: employeeCounts },
+    activeEmployeesResult,
+    allActiveCentersResult,
+    todayReportsResult,
+    employeeCountsResult,
   ] = await Promise.all([
     activeEmployeesQuery,
     supabase.from("centers").select("*").eq("active", true).order("name"),
     todayReportsQuery,
     supabase.from("employees").select("center_id").eq("active", true),
   ]);
+
+  const activeEmployees = assertSupabaseCount("activeEmployees", activeEmployeesResult);
+  const allActiveCenters = assertSupabaseOk("centers", allActiveCentersResult);
+  const todayReports = assertSupabaseOk("todayReports", todayReportsResult);
+  const employeeCounts = assertSupabaseOk("employeeCounts", employeeCountsResult);
 
   const activeCenters = filterCenterId
     ? (allActiveCenters || []).filter((c) => c.id === filterCenterId)
@@ -175,14 +197,16 @@ export async function getDailyOverview(
       todayReports.map((r) => [r.center_id, getRelationName(r.center)])
     );
 
-    const { data: entries } = await supabase
+    const entriesResult = await supabase
       .from("attendance_entries")
       .select("status, notes, employee_id, report_id, employee:employees(full_name, center_id)")
       .in("report_id", reportIds);
 
+    const entries = assertSupabaseOk("attendance_entries", entriesResult) ?? [];
+
     const reportIdToCenter = new Map(todayReports.map((r) => [r.id, r.center_id]));
 
-    entries?.forEach((e) => {
+    for (const e of entries) {
       const entryCenterId = reportIdToCenter.get(e.report_id) || "";
       const entry: EmployeeTodayEntry = {
         employeeId: e.employee_id,
@@ -205,7 +229,7 @@ export async function getDailyOverview(
         else kpis.other++;
         notAttended.push(entry);
       }
-    });
+    }
 
     attended.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
     notAttended.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
@@ -238,7 +262,7 @@ export async function getMonthReportDays(
   const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
   const endDate = `${year}-${String(month).padStart(2, "0")}-${String(getMonthDays(year, month)).padStart(2, "0")}`;
 
-  const [{ count: activeCenterCount }, { data: reports }] = await Promise.all([
+  const [{ count: activeCenterCount, error: centerCountError }, reportsResult] = await Promise.all([
     supabase.from("centers").select("*", { count: "exact", head: true }).eq("active", true),
     supabase
       .from("attendance_reports")
@@ -246,6 +270,13 @@ export async function getMonthReportDays(
       .gte("report_date", startDate)
       .lte("report_date", endDate),
   ]);
+
+  if (centerCountError) {
+    console.error("[today] monthCenterCount:", centerCountError.message, centerCountError.code);
+    throw new Error(mapSupabaseQueryError(centerCountError.message, centerCountError.code));
+  }
+
+  const reports = assertSupabaseOk("monthReports", reportsResult);
 
   const totalCenters = activeCenterCount || 0;
   const byDate = new Map<string, number>();

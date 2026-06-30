@@ -143,6 +143,21 @@ export async function submitAttendanceReport(
   return data as string;
 }
 
+/** Server action compatible with DailyReportForm (centerId, entries, notes, date?). */
+export async function adminSubmitPendienteReport(
+  centerId: string,
+  entries: AttendanceEntryInput[],
+  notes?: string,
+  reportDate?: string
+): Promise<string> {
+  return adminSubmitAttendanceReport(
+    centerId,
+    reportDate || getTodayISO(),
+    entries,
+    notes
+  );
+}
+
 export async function adminSubmitAttendanceReport(
   centerId: string,
   reportDate: string,

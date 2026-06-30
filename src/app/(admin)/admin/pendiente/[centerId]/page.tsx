@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import {
-  adminSubmitAttendanceReport,
+  adminSubmitPendienteReport,
   checkReportForDate,
   getActiveEmployeesForCenter,
 } from "@/lib/actions/attendance";
-import { getCenters } from "@/lib/actions/centers";
 import { DailyReportForm } from "@/components/responsible/DailyReportForm";
-import { parseDateParam } from "@/lib/utils";
+import { mapSupabaseQueryError, parseDateParam } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
 
 interface PageProps {
   params: Promise<{ centerId: string }>;
@@ -18,8 +18,18 @@ export default async function AdminPendienteReportPage({ params, searchParams }:
   const { date: dateParam } = await searchParams;
   const reportDate = parseDateParam(dateParam);
 
-  const centers = await getCenters();
-  const center = centers.find((c) => c.id === centerId && c.active);
+  const supabase = await createClient();
+  const { data: center, error: centerError } = await supabase
+    .from("centers")
+    .select("*")
+    .eq("id", centerId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (centerError) {
+    console.error("[pendiente] center:", centerError.message, centerError.code);
+    throw new Error(mapSupabaseQueryError(centerError.message, centerError.code));
+  }
 
   if (!center) notFound();
 
@@ -37,9 +47,7 @@ export default async function AdminPendienteReportPage({ params, searchParams }:
       backHref={`/admin/resumen-diario?view=pendiente&date=${reportDate}`}
       successHref={`/admin/resumen-diario?view=pendiente&date=${reportDate}`}
       showEmployeeManagement={false}
-      submitReport={async (centerId, entries, notes, date) =>
-        adminSubmitAttendanceReport(centerId, date || reportDate, entries, notes)
-      }
+      submitReport={adminSubmitPendienteReport}
       submittedMessage="El parte ha sido registrado correctamente por administración."
     />
   );
