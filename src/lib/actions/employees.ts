@@ -131,6 +131,9 @@ export async function updateEmployee(id: string, formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const start_date =
+    (formData.get("start_date") as string) || new Date().toISOString().split("T")[0];
+
   const { error } = await supabase
     .from("employees")
     .update({
@@ -139,6 +142,7 @@ export async function updateEmployee(id: string, formData: FormData) {
       phone: (formData.get("phone") as string) || null,
       position: (formData.get("position") as string) || null,
       center_id: formData.get("center_id") as string,
+      start_date,
     })
     .eq("id", id);
 
