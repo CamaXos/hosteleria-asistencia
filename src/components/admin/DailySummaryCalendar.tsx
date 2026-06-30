@@ -32,6 +32,7 @@ interface DailySummaryCalendarProps {
   selectedDate: string;
   selectedCenter: string | null;
   initialReportDays: MonthReportDay[];
+  basePath?: string;
 }
 
 function parseYearMonth(dateISO: string): { year: number; month: number } {
@@ -43,6 +44,7 @@ export function DailySummaryCalendar({
   selectedDate,
   selectedCenter,
   initialReportDays,
+  basePath = "/admin/resumen-diario",
 }: DailySummaryCalendarProps) {
   const router = useRouter();
   const today = getTodayISO();
@@ -57,7 +59,7 @@ export function DailySummaryCalendar({
     if (selectedCenter) {
       params.set("center", selectedCenter);
     }
-    return `/admin/resumen-diario?${params.toString()}`;
+    return `${basePath}?${params.toString()}`;
   }
 
   useEffect(() => {

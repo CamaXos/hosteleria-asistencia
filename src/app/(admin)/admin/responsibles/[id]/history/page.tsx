@@ -13,7 +13,6 @@ interface PageProps {
 const EMPTY_SUMMARY: ResponsibleSubmissionSummary = {
   submitted: 0,
   pending: 0,
-  off: 0,
   future: 0,
 };
 

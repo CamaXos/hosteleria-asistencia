@@ -10,7 +10,6 @@ import {
   deactivateResponsible,
   reactivateResponsible,
 } from "@/lib/actions/employees";
-import { ScheduleEditor } from "@/components/admin/ScheduleEditor";
 import { CredentialsCard } from "@/components/admin/CredentialsCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -20,7 +19,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Alert } from "@/components/ui/Alert";
 import { getErrorMessage, formatDate } from "@/lib/utils";
 import { MIN_RESPONSIBLES_PER_CENTER, MAX_RESPONSIBLES_PER_CENTER } from "@/lib/constants";
-import type { Center, Profile, ResponsibleSchedule } from "@/lib/types/database";
+import type { Center, Profile } from "@/lib/types/database";
 import type { ResponsibleCredentials } from "@/lib/auth/responsible-auth";
 
 type ResponsibleWithCenters = Profile & { center_ids: string[] };
@@ -30,7 +29,6 @@ interface ResponsiblesManagerProps {
   inactiveResponsibles: ResponsibleWithCenters[];
   centers: Center[];
   centerResponsibleCounts: Record<string, number>;
-  allSchedules: ResponsibleSchedule[];
 }
 
 export function ResponsiblesManager({
@@ -38,11 +36,9 @@ export function ResponsiblesManager({
   inactiveResponsibles,
   centers,
   centerResponsibleCounts,
-  allSchedules,
 }: ResponsiblesManagerProps) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ResponsibleWithCenters | null>(null);
-  const [scheduling, setScheduling] = useState<ResponsibleWithCenters | null>(null);
   const [deactivating, setDeactivating] = useState<ResponsibleWithCenters | null>(null);
   const [reactivating, setReactivating] = useState<ResponsibleWithCenters | null>(null);
   const [inactiveOpen, setInactiveOpen] = useState(inactiveResponsibles.length > 0);
@@ -249,9 +245,6 @@ export function ResponsiblesManager({
                           <Button variant="ghost" size="sm" onClick={() => openEdit(resp)}>
                             Asignar centros
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setScheduling(resp)}>
-                            Horario
-                          </Button>
                           {resp.username && (
                             <Button
                               variant="ghost"
@@ -450,18 +443,6 @@ export function ResponsiblesManager({
           con su usuario y contraseña actuales.
         </p>
       </Modal>
-
-      {scheduling && (
-        <ScheduleEditor
-          open={!!scheduling}
-          onClose={() => setScheduling(null)}
-          responsibleId={scheduling.id}
-          responsibleName={scheduling.full_name}
-          centers={centers}
-          centerIds={scheduling.center_ids}
-          existingSchedules={allSchedules.filter((s) => s.responsible_id === scheduling.id)}
-        />
-      )}
 
       {credentials && (
         <CredentialsCard

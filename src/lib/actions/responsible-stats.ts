@@ -1,12 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
 import { subDays, format } from "date-fns";
-import { DAY_OF_WEEK_LABELS } from "@/lib/constants";
 import { formatTimeMadrid, getTodayISO } from "@/lib/utils";
-import { isWorkingDayForCenter } from "@/lib/utils/responsible-calendar";
-import type { AttendanceStatus, Center, Profile, ResponsibleSchedule } from "@/lib/types/database";
+import type { AttendanceStatus, Center, Profile } from "@/lib/types/database";
 
 export interface ResponsibleSubmission {
   id: string;
@@ -17,25 +14,9 @@ export interface ResponsibleSubmission {
   entryCount: number;
 }
 
-export interface ScheduleEntry {
-  centerId: string;
-  centerName: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-}
-
 export interface ResponsibleStatsData {
   submissions: ResponsibleSubmission[];
-  schedules: ScheduleEntry[];
   assignedCenters: Center[];
-}
-
-export interface ScheduleInput {
-  centerId: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
 }
 
 function getRelationName(rel: unknown): string {
@@ -50,12 +31,12 @@ export async function getResponsibleStats(): Promise<ResponsibleStatsData> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { submissions: [], schedules: [], assignedCenters: [] };
+    return { submissions: [], assignedCenters: [] };
   }
 
-  const startDate = format(subDays(new Date(), 30), "yyyy-MM-dd");
+  const startDate = format(subDays(new Date(), 2), "yyyy-MM-dd");
 
-  const [{ data: assignments }, { data: reports }, { data: scheduleRows }] = await Promise.all([
+  const [{ data: assignments }, { data: reports }] = await Promise.all([
     supabase
       .from("responsible_centers")
       .select("center_id, centers(*)")
@@ -74,11 +55,6 @@ export async function getResponsibleStats(): Promise<ResponsibleStatsData> {
       .gte("report_date", startDate)
       .order("report_date", { ascending: false })
       .order("submitted_at", { ascending: false }),
-    supabase
-      .from("responsible_schedules")
-      .select("*, centers(name)")
-      .eq("responsible_id", user.id)
-      .order("day_of_week"),
   ]);
 
   const assignedCenters =
@@ -100,83 +76,7 @@ export async function getResponsibleStats(): Promise<ResponsibleStatsData> {
     };
   });
 
-  const schedules: ScheduleEntry[] = (scheduleRows || []).map((s) => ({
-    centerId: s.center_id,
-    centerName: getRelationName(s.centers),
-    dayOfWeek: s.day_of_week,
-    startTime: s.start_time.slice(0, 5),
-    endTime: s.end_time.slice(0, 5),
-  }));
-
-  return { submissions, schedules, assignedCenters };
-}
-
-export async function getAllSchedules(): Promise<ResponsibleSchedule[]> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("responsible_schedules").select("*");
-  return (data as ResponsibleSchedule[]) || [];
-}
-
-export async function getResponsibleSchedules(
-  responsibleId: string
-): Promise<ResponsibleSchedule[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("responsible_schedules")
-    .select("*")
-    .eq("responsible_id", responsibleId)
-    .order("day_of_week");
-
-  return (data as ResponsibleSchedule[]) || [];
-}
-
-function validateSchedules(schedules: ScheduleInput[]) {
-  for (const s of schedules) {
-    if (!s.startTime || !s.endTime) {
-      throw new Error(
-        `Completa hora inicio y fin para ${DAY_OF_WEEK_LABELS[s.dayOfWeek]}`
-      );
-    }
-    if (s.startTime >= s.endTime) {
-      throw new Error(
-        `La hora fin debe ser posterior a la hora inicio (${DAY_OF_WEEK_LABELS[s.dayOfWeek]})`
-      );
-    }
-  }
-}
-
-export async function saveResponsibleSchedules(
-  responsibleId: string,
-  schedules: ScheduleInput[],
-  assignedCenterIds: string[]
-) {
-  validateSchedules(schedules);
-
-  const supabase = await createClient();
-
-  if (assignedCenterIds.length > 0) {
-    await supabase
-      .from("responsible_schedules")
-      .delete()
-      .eq("responsible_id", responsibleId)
-      .in("center_id", assignedCenterIds);
-  }
-
-  if (schedules.length > 0) {
-    const { error } = await supabase.from("responsible_schedules").insert(
-      schedules.map((s) => ({
-        responsible_id: responsibleId,
-        center_id: s.centerId,
-        day_of_week: s.dayOfWeek,
-        start_time: s.startTime,
-        end_time: s.endTime,
-      }))
-    );
-    if (error) throw new Error(error.message);
-  }
-
-  revalidatePath("/admin/responsibles");
-  revalidatePath("/responsible/stats");
+  return { submissions, assignedCenters };
 }
 
 export async function fetchEmployeeHistoryForMonth(
@@ -338,15 +238,15 @@ export interface ResponsibleSubmissionEntry {
   date: string;
   centerId: string;
   centerName: string;
-  status: "submitted" | "pending" | "off" | "future";
+  status: "submitted" | "pending" | "future";
   submittedAt: string | null;
   submittedTime: string | null;
+  submitterName: string | null;
 }
 
 export interface ResponsibleSubmissionSummary {
   submitted: number;
   pending: number;
-  off: number;
   future: number;
 }
 
@@ -381,6 +281,12 @@ export async function getResponsibleById(responsibleId: string) {
   };
 }
 
+function getProfileName(rel: unknown): string {
+  if (!rel) return "—";
+  if (Array.isArray(rel)) return (rel[0] as { full_name?: string } | undefined)?.full_name || "—";
+  return (rel as { full_name?: string }).full_name || "—";
+}
+
 export async function getResponsibleSubmissionHistory(
   responsibleId: string,
   year: number,
@@ -401,50 +307,49 @@ export async function getResponsibleSubmissionHistory(
   if (!responsible) {
     return {
       entries: [],
-      summary: { submitted: 0, pending: 0, off: 0, future: 0 },
+      summary: { submitted: 0, pending: 0, future: 0 },
       responsibleName: "—",
       centerNames: [],
     };
   }
 
-  const [{ data: reports, error: reportsError }, { data: schedules }] = await Promise.all([
-    supabase
-      .from("attendance_reports")
-      .select("center_id, report_date, submitted_at, center:centers(name)")
-      .eq("submitted_by", responsibleId)
-      .gte("report_date", startDate)
-      .lte("report_date", endDate),
-    supabase
-      .from("responsible_schedules")
-      .select("*")
-      .eq("responsible_id", responsibleId),
-  ]);
+  const centerIds = responsible.centers.map((c) => c.id);
+
+  const { data: reports, error: reportsError } = await supabase
+    .from("attendance_reports")
+    .select("center_id, report_date, submitted_at, submitted_by, center:centers(name), submitter:profiles!attendance_reports_submitted_by_fkey(full_name)")
+    .in("center_id", centerIds.length > 0 ? centerIds : ["00000000-0000-0000-0000-000000000000"])
+    .gte("report_date", startDate)
+    .lte("report_date", endDate);
 
   if (reportsError) {
     console.error("getResponsibleSubmissionHistory reports:", reportsError.message);
     return {
       entries: [],
-      summary: { submitted: 0, pending: 0, off: 0, future: 0 },
+      summary: { submitted: 0, pending: 0, future: 0 },
       responsibleName: responsible.full_name,
       centerNames: responsible.centers.map((c) => c.name),
     };
   }
 
-  const reportMap = new Map<string, { submittedAt: string; centerName: string }>();
+  const reportByCenterDate = new Map<
+    string,
+    { submittedAt: string; centerName: string; submitterName: string; submittedBy: string }
+  >();
   for (const r of reports || []) {
     const key = `${r.report_date}|${r.center_id}`;
-    reportMap.set(key, {
+    reportByCenterDate.set(key, {
       submittedAt: r.submitted_at,
       centerName: getRelationName(r.center),
+      submitterName: getProfileName(r.submitter),
+      submittedBy: r.submitted_by,
     });
   }
 
-  const scheduleRows = (schedules as ResponsibleSchedule[]) || [];
   const entries: ResponsibleSubmissionEntry[] = [];
   const summary: ResponsibleSubmissionSummary = {
     submitted: 0,
     pending: 0,
-    off: 0,
     future: 0,
   };
 
@@ -453,8 +358,7 @@ export async function getResponsibleSubmissionHistory(
 
     for (const center of responsible.centers) {
       const reportKey = `${date}|${center.id}`;
-      const report = reportMap.get(reportKey);
-      const workingDay = isWorkingDayForCenter(date, center.id, scheduleRows);
+      const report = reportByCenterDate.get(reportKey);
 
       let status: ResponsibleSubmissionEntry["status"];
 
@@ -464,12 +368,9 @@ export async function getResponsibleSubmissionHistory(
       } else if (report) {
         status = "submitted";
         summary.submitted++;
-      } else if (workingDay) {
+      } else {
         status = "pending";
         summary.pending++;
-      } else {
-        status = "off";
-        summary.off++;
       }
 
       entries.push({
@@ -479,6 +380,7 @@ export async function getResponsibleSubmissionHistory(
         status,
         submittedAt: report?.submittedAt ?? null,
         submittedTime: report?.submittedAt ? formatTimeMadrid(report.submittedAt) : null,
+        submitterName: report?.submitterName ?? null,
       });
     }
   }

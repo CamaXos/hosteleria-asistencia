@@ -1,4 +1,3 @@
-import type { ResponsibleSchedule } from "@/lib/types/database";
 import type { ResponsibleSubmissionEntry } from "@/lib/actions/responsible-stats";
 import { getIsoWeekdayMadrid } from "@/lib/utils";
 
@@ -6,7 +5,6 @@ export type SubmissionDayStatus =
   | "submitted"
   | "partial"
   | "pending"
-  | "off"
   | "future";
 
 export interface SubmissionCalendarDay {
@@ -26,21 +24,6 @@ function getIsoWeekday(year: number, month: number, day: number): number {
 export function getMondayBasedWeekday(year: number, month: number, day: number): number {
   const iso = getIsoWeekday(year, month, day);
   return iso - 1;
-}
-
-export function isWorkingDayForCenter(
-  date: string,
-  centerId: string,
-  schedules: ResponsibleSchedule[]
-): boolean {
-  const isoWeekday = getIsoWeekdayMadrid(date);
-  const centerSchedules = schedules.filter((s) => s.center_id === centerId);
-
-  if (centerSchedules.length === 0) {
-    return isoWeekday >= 1 && isoWeekday <= 5;
-  }
-
-  return centerSchedules.some((s) => s.day_of_week === isoWeekday);
 }
 
 export function buildSubmissionCalendarDays(
@@ -63,7 +46,7 @@ export function buildSubmissionCalendarDays(
   for (let day = 1; day <= daysInMonth; day++) {
     const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const dayEntries = byDate.get(date) ?? [];
-    const relevant = dayEntries.filter((e) => e.status !== "off" && e.status !== "future");
+    const relevant = dayEntries.filter((e) => e.status !== "future");
 
     let status: SubmissionDayStatus;
     let submittedTime: string | null = null;
@@ -71,7 +54,7 @@ export function buildSubmissionCalendarDays(
     if (date > today) {
       status = "future";
     } else if (relevant.length === 0) {
-      status = "off";
+      status = "pending";
     } else {
       const submitted = relevant.filter((e) => e.status === "submitted");
       const pending = relevant.filter((e) => e.status === "pending");
@@ -87,7 +70,7 @@ export function buildSubmissionCalendarDays(
       }
 
       if (pending.length === 0 && submitted.length === 0) {
-        status = "off";
+        status = "pending";
       }
     }
 

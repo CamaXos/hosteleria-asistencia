@@ -3,74 +3,24 @@
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { DAY_OF_WEEK_LABELS } from "@/lib/constants";
 import type { ResponsibleStatsData } from "@/lib/actions/responsible-stats";
-import { Clock, CalendarDays, Building2, Send } from "lucide-react";
+import { CalendarDays, Send } from "lucide-react";
 
 interface ResponsibleStatsViewProps {
   data: ResponsibleStatsData;
 }
 
 export function ResponsibleStatsView({ data }: ResponsibleStatsViewProps) {
-  const schedulesByCenter = data.schedules.reduce<
-    Record<string, typeof data.schedules>
-  >((acc, s) => {
-    if (!acc[s.centerId]) acc[s.centerId] = [];
-    acc[s.centerId].push(s);
-    return acc;
-  }, {});
-
   return (
     <div className="space-y-6 pb-4">
       <div>
         <h1 className="text-xl font-bold text-slate-900">Estadísticas</h1>
-        <p className="text-sm text-slate-500">Tus envíos y horarios asignados</p>
+        <p className="text-sm text-slate-500">Tus envíos de los últimos 2 días</p>
       </div>
 
-      {/* Schedule */}
-      <Card title="Mi horario" description="Horarios asignados por centro">
-        {data.assignedCenters.length === 0 ? (
-          <p className="text-sm text-slate-500">No tienes centros asignados.</p>
-        ) : (
-          <div className="space-y-4">
-            {data.assignedCenters.map((center) => {
-              const centerSchedules = schedulesByCenter[center.id] || [];
-              return (
-                <div key={center.id} className="rounded-xl border border-slate-100 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-[var(--primary)]" />
-                    <span className="font-medium text-slate-900">{center.name}</span>
-                  </div>
-                  {centerSchedules.length === 0 ? (
-                    <p className="text-xs text-slate-400">Sin horario asignado</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {centerSchedules
-                        .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-                        .map((s) => (
-                          <div
-                            key={`${s.centerId}-${s.dayOfWeek}`}
-                            className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm"
-                          >
-                            <Clock className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-                            <span className="font-medium text-slate-900">
-                              {DAY_OF_WEEK_LABELS[s.dayOfWeek]} {s.startTime} – {s.endTime}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-
-      {/* Recent submissions */}
-      <Card title="Envíos recientes" description="Últimos 30 días">
+      <Card title="Envíos recientes" description="Últimos 2 días">
         {data.submissions.length === 0 ? (
-          <p className="text-sm text-slate-500">No has enviado informes en los últimos 30 días.</p>
+          <p className="text-sm text-slate-500">No has enviado informes en los últimos 2 días.</p>
         ) : (
           <div className="space-y-3">
             {data.submissions.map((s) => (
@@ -91,10 +41,8 @@ export function ResponsibleStatsView({ data }: ResponsibleStatsViewProps) {
                     Enviado
                   </Badge>
                 </div>
-                <p className="mt-2 flex items-center gap-1 text-sm text-slate-600">
-                  <Clock className="h-4 w-4 text-slate-400" />
-                  Hora de envío: <strong>{formatDateTime(s.submittedAt).split(" ")[1]}</strong>
-                  <span className="text-slate-400">({formatDateTime(s.submittedAt)})</span>
+                <p className="mt-2 text-sm text-slate-600">
+                  Hora de envío: <strong>{formatDateTime(s.submittedAt)}</strong>
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
                   {s.entryCount} empleado{s.entryCount !== 1 ? "s" : ""} registrado{s.entryCount !== 1 ? "s" : ""}

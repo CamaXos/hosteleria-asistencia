@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { Card, KpiCard } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DailySummaryCalendar } from "@/components/admin/DailySummaryCalendar";
 import { DailySummaryCenterFilter } from "@/components/admin/DailySummaryCenterFilter";
+import { Button } from "@/components/ui/Button";
 import { formatDateLong, formatDateTime, formatTime } from "@/lib/utils";
 import type { MonthReportDay, TodayOverview } from "@/lib/actions/today";
 import {
@@ -18,7 +20,6 @@ import {
   Clock,
   Building2,
   FileCheck,
-  UserCog,
 } from "lucide-react";
 
 interface DailySummaryViewProps {
@@ -37,6 +38,8 @@ export function DailySummaryView({
   const selectedCenterName = selectedCenter
     ? data.activeCenters.find((c) => c.id === selectedCenter)?.name
     : null;
+
+  const pendienteHref = `/admin/pendiente?date=${selectedDate}`;
 
   return (
     <div className="space-y-6">
@@ -67,8 +70,7 @@ export function DailySummaryView({
         </p>
       )}
 
-      {/* KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         <KpiCard label="Empleados activos" value={data.kpis.activeEmployees} icon={<Users className="h-5 w-5" />} />
         <KpiCard label="Asistieron" value={data.kpis.workedToday} variant="success" icon={<CheckCircle2 className="h-5 w-5" />} />
         <KpiCard label="Faltas" value={data.kpis.absences} variant="danger" icon={<UserX className="h-5 w-5" />} />
@@ -77,54 +79,40 @@ export function DailySummaryView({
         <KpiCard label="Libre" value={data.kpis.dayOff} icon={<CalendarOff className="h-5 w-5" />} />
         <KpiCard label="Baja" value={data.kpis.inactive} icon={<UserX className="h-5 w-5" />} />
         <KpiCard label="Centros pendientes" value={data.kpis.pendingCenters} variant="warning" icon={<AlertTriangle className="h-5 w-5" />} />
-        <KpiCard label="Responsables pendientes" value={data.kpis.pendingResponsibles} variant="danger" icon={<UserCog className="h-5 w-5" />} />
       </div>
 
-      {/* Pending responsibles alert */}
-      {data.pendingResponsibles.length > 0 ? (
+      {data.pendingCenters.length > 0 ? (
         <Card
-          title="Responsables que debían cerrar parte y no lo hicieron"
-          description="Centros sin informe en jornada laborable del responsable"
-          className="border-red-200 bg-red-50/40"
+          title="Centros sin parte enviado"
+          description="Centros activos que aún no han registrado asistencia para este día"
+          className="border-amber-200 bg-amber-50/40"
         >
           <div className="space-y-3">
-            {data.pendingResponsibles.map((r) => (
+            {data.pendingCenters.map((c) => (
               <div
-                key={r.responsibleId}
-                className="rounded-xl border border-red-200 bg-white px-4 py-3 shadow-sm"
+                key={c.id}
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 shadow-sm"
               >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-900">
-                      {r.fullName}
-                      {r.username && (
-                        <span className="ml-2 text-sm font-normal text-slate-500">@{r.username}</span>
-                      )}
-                    </p>
-                    <div className="mt-2 space-y-2">
-                      {r.pendingCenters.map((c) => (
-                        <div key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-800">
-                            <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                            {c.name}
-                          </span>
-                          {c.schedule && (
-                            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                              <Clock className="h-3 w-3" />
-                              {c.schedule.startTime} – {c.schedule.endTime}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <Badge variant="danger" className="shrink-0">Parte pendiente</Badge>
+                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900">{c.name}</p>
+                  <p className="text-sm text-slate-500">
+                    {c.employeeCount} empleado{c.employeeCount !== 1 ? "s" : ""} activo{c.employeeCount !== 1 ? "s" : ""}
+                  </p>
                 </div>
+                <Badge variant="warning" className="shrink-0">Pendiente</Badge>
               </div>
             ))}
           </div>
+          <div className="mt-4 border-t border-amber-100 pt-4">
+            <Link href={pendienteHref}>
+              <Button variant="accent" size="sm">
+                Completar partes pendientes
+              </Button>
+            </Link>
+          </div>
         </Card>
-      ) : data.centers.length > 0 && data.pendingCenters.length === 0 ? (
+      ) : data.centers.length > 0 ? (
         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
           <span className="font-medium text-emerald-800">
@@ -135,27 +123,7 @@ export function DailySummaryView({
         </div>
       ) : null}
 
-      {/* Pending centers alert */}
-      {data.pendingCenters.length > 0 && (
-        <Card title="Centros pendientes" description="Aún no han enviado el parte del día">
-          <div className="space-y-2">
-            {data.pendingCenters.map((c) => (
-              <div
-                key={c.id}
-                className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
-              >
-                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
-                <span className="font-medium text-slate-900">{c.name}</span>
-                <Badge variant="warning" className="ml-auto">Pendiente</Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* By center status */}
       <Card title="Estado por centro" description="Parte enviado o pendiente">
-        {/* Desktop table */}
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
@@ -184,7 +152,6 @@ export function DailySummaryView({
             </tbody>
           </table>
         </div>
-        {/* Mobile cards */}
         <div className="space-y-3 md:hidden">
           {data.centers.map((c) => (
             <div key={c.center.id} className="rounded-xl border border-slate-200 p-4">
@@ -211,14 +178,13 @@ export function DailySummaryView({
         </div>
       </Card>
 
-      {/* Submissions by responsibles */}
       {data.submissions.length > 0 && (
-        <Card title="Responsables que cerraron partes" description="Informes enviados">
+        <Card title="Partes enviados" description="Informes registrados para este día">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-500">
-                  <th className="pb-2 pr-4">Responsable</th>
+                  <th className="pb-2 pr-4">Enviado por</th>
                   <th className="pb-2 pr-4">Centro</th>
                   <th className="pb-2">Hora</th>
                 </tr>
@@ -248,7 +214,6 @@ export function DailySummaryView({
         </Card>
       )}
 
-      {/* Attended */}
       <Card title="Personas que asistieron" description={`${data.attended.length} empleados`}>
         {data.attended.length === 0 ? (
           <p className="text-sm text-slate-500">Nadie ha registrado asistencia para este día.</p>
@@ -289,7 +254,6 @@ export function DailySummaryView({
         )}
       </Card>
 
-      {/* Not attended */}
       <Card title="Personas que no asistieron" description={`${data.notAttended.length} registros`}>
         {data.notAttended.length === 0 ? (
           <p className="text-sm text-slate-500">Sin ausencias registradas.</p>

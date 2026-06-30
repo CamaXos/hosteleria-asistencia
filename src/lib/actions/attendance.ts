@@ -83,14 +83,20 @@ export async function getAssignedCenters(): Promise<Center[]> {
 }
 
 export async function checkTodayReport(centerId: string): Promise<AttendanceReport | null> {
+  return checkReportForDate(centerId, getTodayISO());
+}
+
+export async function checkReportForDate(
+  centerId: string,
+  reportDate: string
+): Promise<AttendanceReport | null> {
   const supabase = await createClient();
-  const today = getTodayISO();
 
   const { data } = await supabase
     .from("attendance_reports")
     .select("*")
     .eq("center_id", centerId)
-    .eq("report_date", today)
+    .eq("report_date", reportDate)
     .maybeSingle();
 
   return data;
@@ -132,7 +138,38 @@ export async function submitAttendanceReport(
   revalidatePath("/responsible");
   revalidatePath("/admin");
   revalidatePath("/admin/resumen-diario");
+  revalidatePath("/admin/pendiente");
   revalidatePath("/responsible/stats");
+  return data as string;
+}
+
+export async function adminSubmitAttendanceReport(
+  centerId: string,
+  reportDate: string,
+  entries: AttendanceEntryInput[],
+  notes?: string
+): Promise<string> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("admin_submit_attendance_report", {
+    p_center_id: centerId,
+    p_report_date: reportDate,
+    p_notes: notes || null,
+    p_entries: entries,
+  });
+
+  if (error) {
+    throw new Error(mapAttendanceSubmitError(error.message));
+  }
+
+  if (!data) {
+    throw new Error("No se pudo enviar el informe. Inténtalo de nuevo.");
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/resumen-diario");
+  revalidatePath("/admin/pendiente");
+  revalidatePath("/admin/analytics");
   return data as string;
 }
 

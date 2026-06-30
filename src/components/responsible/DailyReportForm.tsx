@@ -19,6 +19,13 @@ import { formatDateLong, getTodayISO, getErrorMessage } from "@/lib/utils";
 import { ArrowLeft, CheckCircle2, Send, UserPlus } from "lucide-react";
 import type { AttendanceEntryInput, AttendanceStatus, Center, Employee } from "@/lib/types/database";
 
+type SubmitReportFn = (
+  centerId: string,
+  entries: AttendanceEntryInput[],
+  notes?: string,
+  reportDate?: string
+) => Promise<string>;
+
 const RESPONSIBLE_STATUSES: AttendanceStatus[] = [
   "worked", "day_off", "vacation", "absence", "sick", "other",
 ];
@@ -37,12 +44,24 @@ interface DailyReportFormProps {
   center: Center;
   initialEmployees: Employee[];
   alreadySubmitted: boolean;
+  reportDate?: string;
+  backHref?: string;
+  successHref?: string;
+  showEmployeeManagement?: boolean;
+  submitReport?: SubmitReportFn;
+  submittedMessage?: string;
 }
 
 export function DailyReportForm({
   center,
   initialEmployees,
   alreadySubmitted,
+  reportDate = getTodayISO(),
+  backHref = "/responsible",
+  successHref = "/responsible?success=1",
+  showEmployeeManagement = true,
+  submitReport = (centerId, entries, notes) => submitAttendanceReport(centerId, entries, notes),
+  submittedMessage = "El control de asistencia de hoy ya ha sido enviado para este centro.",
 }: DailyReportFormProps) {
   const router = useRouter();
   const [employees, setEmployees] = useState(initialEmployees);
@@ -66,12 +85,10 @@ export function DailyReportForm({
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
           <CheckCircle2 className="h-9 w-9 text-emerald-600" />
         </div>
-        <Alert variant="success">
-          El control de asistencia de hoy ya ha sido enviado para este centro.
-        </Alert>
-        <Button variant="outline" className="w-full" onClick={() => router.push("/responsible")}>
+        <Alert variant="success">{submittedMessage}</Alert>
+        <Button variant="outline" className="w-full" onClick={() => router.push(backHref)}>
           <ArrowLeft className="h-4 w-4" />
-          Volver a centros
+          Volver
         </Button>
       </div>
     );
@@ -103,12 +120,13 @@ export function DailyReportForm({
     setLoading(true);
     setError("");
     try {
-      await submitAttendanceReport(
+      await submitReport(
         center.id,
         Object.values(entries),
-        reportNotes || undefined
+        reportNotes || undefined,
+        reportDate
       );
-      router.push("/responsible?success=1");
+      router.push(successHref);
       router.refresh();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -163,24 +181,26 @@ export function DailyReportForm({
     <div className="space-y-5">
       <div>
         <button
-          onClick={() => router.push("/responsible")}
+          onClick={() => router.push(backHref)}
           className="mb-3 flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
         <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">{center.name}</h1>
-        <p className="text-sm text-slate-500">{formatDateLong(getTodayISO())}</p>
+        <p className="text-sm text-slate-500">{formatDateLong(reportDate)}</p>
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
 
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => setShowAddEmployee(true)}>
-          <UserPlus className="h-4 w-4" />
-          Alta empleado
-        </Button>
-      </div>
+      {showEmployeeManagement && (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowAddEmployee(true)}>
+            <UserPlus className="h-4 w-4" />
+            Alta empleado
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-4">
         {employees.map((emp) => (
@@ -191,9 +211,11 @@ export function DailyReportForm({
                   <p className="font-semibold text-slate-900">{emp.full_name}</p>
                   {emp.position && <p className="text-xs text-slate-500">{emp.position}</p>}
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setDeactivating(emp)}>
-                  Baja
-                </Button>
+                {showEmployeeManagement && (
+                  <Button variant="ghost" size="sm" onClick={() => setDeactivating(emp)}>
+                    Baja
+                  </Button>
+                )}
               </div>
             </div>
             <div className="p-4">
@@ -240,7 +262,7 @@ export function DailyReportForm({
       )}
 
       {/* Sticky submit bar */}
-      <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
+      <div className={`fixed left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm ${showEmployeeManagement ? "bottom-16" : "bottom-0"}`}>
         <div className="mx-auto max-w-2xl">
           <Button
             variant="accent"
@@ -266,7 +288,7 @@ export function DailyReportForm({
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Centro: <strong>{center.name}</strong> — {formatDateLong(getTodayISO())}
+            Centro: <strong>{center.name}</strong> — {formatDateLong(reportDate)}
           </p>
           <div className="grid grid-cols-3 gap-2">
             {RESPONSIBLE_STATUSES.map((s) => (
@@ -297,32 +319,36 @@ export function DailyReportForm({
         </div>
       </Modal>
 
-      <Modal open={showAddEmployee} onClose={() => setShowAddEmployee(false)} title="Alta de empleado">
-        <form onSubmit={handleAddEmployee} className="space-y-4">
-          <Input name="full_name" label="Nombre completo" required />
-          <Input name="position" label="Puesto" />
-          <Input name="dni_nie" label="DNI/NIE" />
-          <Input name="phone" label="Teléfono" />
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setShowAddEmployee(false)}>Cancelar</Button>
-            <Button type="submit" loading={loading}>Crear empleado</Button>
-          </div>
-        </form>
-      </Modal>
+      {showEmployeeManagement && (
+        <>
+          <Modal open={showAddEmployee} onClose={() => setShowAddEmployee(false)} title="Alta de empleado">
+            <form onSubmit={handleAddEmployee} className="space-y-4">
+              <Input name="full_name" label="Nombre completo" required />
+              <Input name="position" label="Puesto" />
+              <Input name="dni_nie" label="DNI/NIE" />
+              <Input name="phone" label="Teléfono" />
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="outline" onClick={() => setShowAddEmployee(false)}>Cancelar</Button>
+                <Button type="submit" loading={loading}>Crear empleado</Button>
+              </div>
+            </form>
+          </Modal>
 
-      <Modal
-        open={!!deactivating}
-        onClose={() => setDeactivating(null)}
-        title="Confirmar baja"
-        onConfirm={handleDeactivate}
-        confirmLabel="Dar de baja"
-        variant="danger"
-        loading={loading}
-      >
-        <p className="text-sm text-slate-600">
-          ¿Dar de baja a <strong>{deactivating?.full_name}</strong>?
-        </p>
-      </Modal>
+          <Modal
+            open={!!deactivating}
+            onClose={() => setDeactivating(null)}
+            title="Confirmar baja"
+            onConfirm={handleDeactivate}
+            confirmLabel="Dar de baja"
+            variant="danger"
+            loading={loading}
+          >
+            <p className="text-sm text-slate-600">
+              ¿Dar de baja a <strong>{deactivating?.full_name}</strong>?
+            </p>
+          </Modal>
+        </>
+      )}
     </div>
   );
 }

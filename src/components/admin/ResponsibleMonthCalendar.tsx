@@ -17,15 +17,13 @@ const DAY_CELL_STYLES: Record<SubmissionDayStatus, string> = {
   submitted: "bg-emerald-500 text-white border-emerald-600 shadow-sm",
   partial: "bg-amber-500 text-white border-amber-600 shadow-sm",
   pending: "bg-red-500 text-white border-red-600 shadow-sm",
-  off: "bg-slate-100 text-slate-400 border-slate-200",
   future: "bg-slate-50 text-slate-300 border-slate-200 border-dashed",
 };
 
 const STATUS_LABELS: Record<SubmissionDayStatus, string> = {
   submitted: "Parte enviado",
   partial: "Parte parcial",
-  pending: "Sin parte",
-  off: "Día libre",
+  pending: "Centro sin parte",
   future: "Futuro",
 };
 
@@ -51,7 +49,7 @@ export function ResponsibleMonthCalendar({
   const leadingEmpty = days.length > 0 ? days[0].weekday : 0;
 
   const stats = useMemo(() => {
-    const counts = { submitted: 0, partial: 0, pending: 0, off: 0, future: 0 };
+    const counts = { submitted: 0, partial: 0, pending: 0, future: 0 };
     for (const day of days) {
       counts[day.status]++;
     }
@@ -61,7 +59,7 @@ export function ResponsibleMonthCalendar({
   return (
     <Card
       title="Calendario de envíos"
-      description={`${monthLabel} ${year} · ${stats.submitted} enviados · ${stats.pending} pendientes · ${stats.partial} parciales`}
+      description={`${monthLabel} ${year} · ${stats.submitted} completos · ${stats.pending} sin parte · ${stats.partial} parciales`}
     >
       <div className="overflow-x-auto -mx-1 px-1 pb-1">
         <div className="min-w-[280px] sm:min-w-0">
@@ -97,10 +95,9 @@ export function ResponsibleMonthCalendar({
       <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
         {(
           [
-            { status: "submitted" as const, label: "Enviado" },
+            { status: "submitted" as const, label: "Completo" },
             { status: "partial" as const, label: "Parcial" },
             { status: "pending" as const, label: "Sin parte" },
-            { status: "off" as const, label: "Día libre" },
           ] as const
         ).map((item) => (
           <div
@@ -116,9 +113,7 @@ export function ResponsibleMonthCalendar({
             >
               {item.status === "submitted" ? "✓" : item.status === "pending" ? "✗" : "·"}
             </span>
-            <span className="text-slate-600">
-              {item.status === "submitted" ? "Enviado a las HH:mm" : item.label}
-            </span>
+            <span className="text-slate-600">{item.label}</span>
           </div>
         ))}
       </div>

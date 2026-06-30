@@ -43,20 +43,19 @@ const MONTHS = [
 const EMPTY_SUMMARY: ResponsibleSubmissionSummary = {
   submitted: 0,
   pending: 0,
-  off: 0,
   future: 0,
 };
 
 function statusBadge(entry: ResponsibleSubmissionEntry) {
   switch (entry.status) {
     case "submitted":
-      return <Badge variant="success">Enviado</Badge>;
+      return <Badge variant="success">Parte enviado</Badge>;
     case "pending":
-      return <Badge variant="danger">Pendiente</Badge>;
+      return <Badge variant="danger">Centro sin parte</Badge>;
     case "future":
       return <Badge variant="default">Futuro</Badge>;
     default:
-      return <Badge variant="default">Día libre</Badge>;
+      return <Badge variant="default">—</Badge>;
   }
 }
 
@@ -79,7 +78,7 @@ export function ResponsibleHistoryView({
   const years = Array.from({ length: 3 }, (_, i) => now.getFullYear() - i);
   const monthLabel = MONTHS.find((m) => Number(m.value) === month)?.label ?? "";
 
-  const tableEntries = entries.filter((e) => e.status !== "off" && e.status !== "future");
+  const tableEntries = entries.filter((e) => e.status !== "future");
 
   function handleFilter() {
     startTransition(async () => {
@@ -130,10 +129,9 @@ export function ResponsibleHistoryView({
         </Button>
       </div>
 
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-        <KpiCard label="Partes enviados" value={summary.submitted} variant="success" />
-        <KpiCard label="Sin parte (pendiente)" value={summary.pending} variant="danger" />
-        <KpiCard label="Días libres" value={summary.off} variant="default" />
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+        <KpiCard label="Partes enviados (centro)" value={summary.submitted} variant="success" />
+        <KpiCard label="Centros sin parte" value={summary.pending} variant="danger" />
         <KpiCard label="Futuros" value={summary.future} variant="default" />
       </div>
 
@@ -144,9 +142,9 @@ export function ResponsibleHistoryView({
         entries={entries}
       />
 
-      <Card title="Detalle del mes" description={`${tableEntries.length} registros laborables`}>
+      <Card title="Detalle del mes" description={`${tableEntries.length} registros`}>
         {tableEntries.length === 0 ? (
-          <p className="text-sm text-slate-500">Sin registros laborables para este mes.</p>
+          <p className="text-sm text-slate-500">Sin registros para este mes.</p>
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
@@ -156,6 +154,7 @@ export function ResponsibleHistoryView({
                     <th className="pb-2 pr-4">Fecha</th>
                     <th className="pb-2 pr-4">Centro</th>
                     <th className="pb-2 pr-4">Estado</th>
+                    <th className="pb-2 pr-4">Enviado por</th>
                     <th className="pb-2">Hora envío</th>
                   </tr>
                 </thead>
@@ -165,6 +164,7 @@ export function ResponsibleHistoryView({
                       <td className="py-3 pr-4">{formatDate(e.date)}</td>
                       <td className="py-3 pr-4 text-slate-600">{e.centerName}</td>
                       <td className="py-3 pr-4">{statusBadge(e)}</td>
+                      <td className="py-3 pr-4 text-slate-600">{e.submitterName ?? "—"}</td>
                       <td className="py-3 text-slate-500">{e.submittedTime ?? "—"}</td>
                     </tr>
                   ))}
@@ -182,8 +182,11 @@ export function ResponsibleHistoryView({
                     {statusBadge(e)}
                   </div>
                   <p className="text-xs text-slate-500">{e.centerName}</p>
+                  {e.submitterName && (
+                    <p className="mt-1 text-xs text-slate-500">Enviado por: {e.submitterName}</p>
+                  )}
                   {e.submittedTime && (
-                    <p className="mt-1 text-xs text-emerald-600">Enviado a las {e.submittedTime}</p>
+                    <p className="mt-1 text-xs text-emerald-600">A las {e.submittedTime}</p>
                   )}
                 </div>
               ))}
