@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { DAY_OF_WEEK_SHORT } from "@/lib/constants";
 import { getMonthReportDays, type MonthReportDay } from "@/lib/actions/today";
 import { getMondayBasedWeekday } from "@/lib/utils/employee-calendar";
-import { cn, getMonthDays, getTodayISO } from "@/lib/utils";
+import { cn, getMonthDays, getBusinessDate } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const WEEKDAY_HEADERS = [1, 2, 3, 4, 5, 6, 7].map((d) => DAY_OF_WEEK_SHORT[d]);
@@ -49,7 +49,7 @@ export function DailySummaryCalendar({
   view,
 }: DailySummaryCalendarProps) {
   const router = useRouter();
-  const today = getTodayISO();
+  const today = getBusinessDate();
   const selected = parseYearMonth(selectedDate);
   const [viewYear, setViewYear] = useState(selected.year);
   const [viewMonth, setViewMonth] = useState(selected.month);

@@ -2,7 +2,7 @@ import { getAssignedCenters, checkTodayReport } from "@/lib/actions/attendance";
 import { CenterSelector } from "@/components/responsible/CenterSelector";
 import { SuccessBanner } from "@/components/responsible/SuccessBanner";
 import { Alert } from "@/components/ui/Alert";
-import { getTodayISO, formatDateLong } from "@/lib/utils";
+import { getBusinessDate, getBusinessDateLabel } from "@/lib/utils";
 import { CalendarDays } from "lucide-react";
 
 export default async function ResponsibleHome({
@@ -12,7 +12,7 @@ export default async function ResponsibleHome({
 }) {
   const params = await searchParams;
   const centers = await getAssignedCenters();
-  const today = getTodayISO();
+  const businessDate = getBusinessDate();
 
   const centersWithStatus = await Promise.all(
     centers.map(async (center) => {
@@ -39,7 +39,7 @@ export default async function ResponsibleHome({
       <div className="rounded-xl bg-[var(--primary)] p-5 text-white shadow-md">
         <div className="flex items-center gap-2 text-blue-100">
           <CalendarDays className="h-4 w-4" />
-          <span className="text-sm">{formatDateLong(today)}</span>
+          <span className="text-sm">Parte del día: {getBusinessDateLabel(businessDate)}</span>
         </div>
         <h2 className="mt-2 text-xl font-bold">Tus centros</h2>
         <div className="mt-3 flex gap-4 text-sm">

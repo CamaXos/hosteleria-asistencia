@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/Card";
 import { DAY_OF_WEEK_SHORT } from "@/lib/constants";
 import type { ResponsibleSubmissionEntry } from "@/lib/actions/responsible-stats";
-import { formatDate, getTodayISO } from "@/lib/utils";
+import { formatDate, getBusinessDate } from "@/lib/utils";
 import {
   buildSubmissionCalendarDays,
   type SubmissionDayStatus,
@@ -40,7 +40,7 @@ export function ResponsibleMonthCalendar({
   monthLabel,
   entries,
 }: ResponsibleMonthCalendarProps) {
-  const today = getTodayISO();
+  const today = getBusinessDate();
   const days = useMemo(
     () => buildSubmissionCalendarDays(year, month, entries, today),
     [year, month, entries, today]

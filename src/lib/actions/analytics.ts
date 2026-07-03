@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getTodayISO } from "@/lib/utils";
+import { getBusinessDate } from "@/lib/utils";
 import type { AttendanceStatus } from "@/lib/types/database";
 import { ATTENDANCE_STATUS_LABELS } from "@/lib/constants";
 import { subDays, format } from "date-fns";
@@ -82,7 +82,7 @@ function getDateRange(days: number) {
 
 export async function getTodayAttendanceStats(): Promise<TodayStats> {
   const supabase = await createClient();
-  const today = getTodayISO();
+  const today = getBusinessDate();
 
   const { data: reports } = await supabase
     .from("attendance_reports")

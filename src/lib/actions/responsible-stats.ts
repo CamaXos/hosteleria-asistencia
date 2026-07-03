@@ -1,8 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { subDays, format } from "date-fns";
-import { formatTimeMadrid, getTodayISO } from "@/lib/utils";
+import { formatTimeMadrid, getBusinessDate, subtractDaysFromISO } from "@/lib/utils";
 import type { AttendanceStatus, Center, Profile } from "@/lib/types/database";
 
 export interface ResponsibleSubmission {
@@ -34,7 +33,7 @@ export async function getResponsibleStats(): Promise<ResponsibleStatsData> {
     return { submissions: [], assignedCenters: [] };
   }
 
-  const startDate = format(subDays(new Date(), 2), "yyyy-MM-dd");
+  const startDate = subtractDaysFromISO(getBusinessDate(), 2);
 
   const [{ data: assignments }, { data: reports }] = await Promise.all([
     supabase
@@ -301,7 +300,7 @@ export async function getResponsibleSubmissionHistory(
   const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
   const daysInMonth = new Date(year, month, 0).getDate();
   const endDate = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
-  const today = getTodayISO();
+  const today = getBusinessDate();
 
   const responsible = await getResponsibleById(responsibleId);
   if (!responsible) {

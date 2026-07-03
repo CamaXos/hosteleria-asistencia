@@ -11,11 +11,11 @@ import type {
   MonthlyAttendanceRow,
   ReportWithDetails,
 } from "@/lib/types/database";
-import { emptyTotals, getMonthDays, getTodayISO, mapAttendanceSubmitError } from "@/lib/utils";
+import { emptyTotals, getMonthDays, getBusinessDate, mapAttendanceSubmitError } from "@/lib/utils";
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const supabase = await createClient();
-  const today = getTodayISO();
+  const today = getBusinessDate();
 
   const [{ count: totalCenters }, { count: activeCenters }, { count: totalEmployees }, { count: activeEmployees }, { data: todayReports }] =
     await Promise.all([
@@ -48,7 +48,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
 export async function getTodayReports(): Promise<ReportWithDetails[]> {
   const supabase = await createClient();
-  const today = getTodayISO();
+  const today = getBusinessDate();
 
   const { data } = await supabase
     .from("attendance_reports")
@@ -83,7 +83,7 @@ export async function getAssignedCenters(): Promise<Center[]> {
 }
 
 export async function checkTodayReport(centerId: string): Promise<AttendanceReport | null> {
-  return checkReportForDate(centerId, getTodayISO());
+  return checkReportForDate(centerId, getBusinessDate());
 }
 
 export async function checkReportForDate(
@@ -117,14 +117,17 @@ export async function getActiveEmployeesForCenter(centerId: string) {
 export async function submitAttendanceReport(
   centerId: string,
   entries: AttendanceEntryInput[],
-  notes?: string
+  notes?: string,
+  reportDate?: string
 ): Promise<string> {
   const supabase = await createClient();
+  const businessDate = reportDate || getBusinessDate();
 
   const { data, error } = await supabase.rpc("submit_attendance_report", {
     p_center_id: centerId,
     p_notes: notes || null,
     p_entries: entries,
+    p_report_date: businessDate,
   });
 
   if (error) {
@@ -152,7 +155,7 @@ export async function adminSubmitPendienteReport(
 ): Promise<string> {
   return adminSubmitAttendanceReport(
     centerId,
-    reportDate || getTodayISO(),
+    reportDate || getBusinessDate(),
     entries,
     notes
   );

@@ -1,6 +1,16 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
+export {
+  getBusinessDate,
+  getBusinessDateLabel,
+  isWithinBusinessDay,
+  isBeforeBusinessDay,
+  isAfterBusinessDay,
+  subtractDaysFromISO,
+} from "./business-date";
+import { getBusinessDate } from "./business-date";
+
 export function formatDate(date: string | Date, pattern = "dd/MM/yyyy"): string {
   const d = typeof date === "string" ? parseISO(date) : date;
   return format(d, pattern, { locale: es });
@@ -42,9 +52,9 @@ export function getIsoWeekdayMadrid(dateISO: string): number {
 }
 
 export function parseDateParam(value: string | undefined): string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return getTodayISO();
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return getBusinessDate();
   const d = parseISO(value);
-  if (Number.isNaN(d.getTime())) return getTodayISO();
+  if (Number.isNaN(d.getTime())) return getBusinessDate();
   return value;
 }
 

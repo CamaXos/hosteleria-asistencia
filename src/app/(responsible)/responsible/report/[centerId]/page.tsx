@@ -5,6 +5,7 @@ import {
   getAssignedCenters,
 } from "@/lib/actions/attendance";
 import { DailyReportForm } from "@/components/responsible/DailyReportForm";
+import { getBusinessDate } from "@/lib/utils";
 
 interface ReportPageProps {
   params: Promise<{ centerId: string }>;
@@ -17,6 +18,8 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   if (!center) notFound();
 
+  const businessDate = getBusinessDate();
+
   const [existingReport, employees] = await Promise.all([
     checkTodayReport(centerId),
     getActiveEmployeesForCenter(centerId),
@@ -27,6 +30,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
       center={center}
       initialEmployees={employees}
       alreadySubmitted={!!existingReport}
+      reportDate={businessDate}
     />
   );
 }

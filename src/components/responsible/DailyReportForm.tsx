@@ -15,7 +15,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Textarea } from "@/components/ui/Textarea";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ATTENDANCE_STATUS_LABELS } from "@/lib/constants";
-import { formatDateLong, getTodayISO, getErrorMessage } from "@/lib/utils";
+import { formatDate, formatDateLong, getBusinessDate, getBusinessDateLabel, getErrorMessage } from "@/lib/utils";
 import { ArrowLeft, CheckCircle2, Send, UserPlus } from "lucide-react";
 import type { AttendanceEntryInput, AttendanceStatus, Center, Employee } from "@/lib/types/database";
 
@@ -56,12 +56,13 @@ export function DailyReportForm({
   center,
   initialEmployees,
   alreadySubmitted,
-  reportDate = getTodayISO(),
+  reportDate = getBusinessDate(),
   backHref = "/responsible",
   successHref = "/responsible?success=1",
   showEmployeeManagement = true,
-  submitReport = (centerId, entries, notes) => submitAttendanceReport(centerId, entries, notes),
-  submittedMessage = "El control de asistencia de hoy ya ha sido enviado para este centro.",
+  submitReport = (centerId, entries, notes, date) =>
+    submitAttendanceReport(centerId, entries, notes, date),
+  submittedMessage = "El control de asistencia del día laboral ya ha sido enviado para este centro.",
 }: DailyReportFormProps) {
   const router = useRouter();
   const [employees, setEmployees] = useState(initialEmployees);
@@ -188,8 +189,16 @@ export function DailyReportForm({
           Volver
         </button>
         <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">{center.name}</h1>
+        <p className="text-sm font-medium text-slate-700">
+          Parte del día: {getBusinessDateLabel(reportDate)}
+        </p>
         <p className="text-sm text-slate-500">{formatDateLong(reportDate)}</p>
       </div>
+
+      <Alert variant="info">
+        El parte corresponde al día laboral que cierra a las 05:00. Ahora estás registrando el día{" "}
+        <strong>{formatDate(reportDate)}</strong>.
+      </Alert>
 
       {error && <Alert variant="error">{error}</Alert>}
 
